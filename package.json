@@ -1,0 +1,14 @@
+{
+  "name": "scacchi-mostri",
+  "version": "0.1.0",
+  "description": "Scacchi con HP, tipi e strumenti, da giocare online in due",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "sprites": "node tools/gen-sprites.js",
+    "test": "node test/test-game.js"
+  },
+  "engines": { "node": ">=18" },
+  "dependencies": { "socket.io": "^4.7.5" },
+  "devDependencies": { "socket.io-client": "^4.7.5" }
+}

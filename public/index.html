@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scacchi Mostri</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<section id="home" class="card home">
+  <h1>Scacchi Mostri</h1>
+  <p class="lead">Scacchi con HP, tipi e strumenti. Si gioca in due, online.</p>
+  <button id="btnCreate" class="btn primary" type="button">Crea stanza</button>
+  <div class="or">oppure entra in una stanza</div>
+  <form id="joinForm" class="joinrow">
+    <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">
+    <button class="btn" type="submit">Entra</button>
+  </form>
+  <p id="homeErr" class="err" role="alert"></p>
+  <button id="btnRules" class="link" type="button">Come si gioca</button>
+</section>
+
+<div id="game" hidden>
+  <header id="topbar"></header>
+  <main>
+    <section id="left">
+      <div id="status"></div>
+      <div id="boardWrap"><div id="board" aria-label="Scacchiera"></div></div>
+    </section>
+    <aside id="panel"></aside>
+  </main>
+</div>
+
+<dialog id="dlgTypes"></dialog>
+<dialog id="dlgRules"></dialog>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="shared.js"></script>
+<script src="config.js"></script>
+<script src="client.js"></script>
+</body>
+</html>
