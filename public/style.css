@@ -73,6 +73,9 @@ main{display:flex;gap:18px;padding:16px;max-width:1180px;margin:0 auto;align-ite
 .pc.shield img{filter:drop-shadow(0 0 5px #3A8DFF) drop-shadow(0 0 2px #3A8DFF)}
 .pc.boost img{filter:drop-shadow(0 0 5px #FFB300) drop-shadow(0 0 2px #FFB300)}
 .pc.shield.boost img{filter:drop-shadow(0 0 5px #3A8DFF) drop-shadow(0 0 5px #FFB300)}
+.pc.frozen img{filter:grayscale(.7) brightness(1.1) drop-shadow(0 0 5px #7FD3FF) drop-shadow(0 0 2px #7FD3FF)}
+.pc.lock img{opacity:.8}
+.pc.lock::after{content:"";position:absolute;inset:6% 6% 10% 6%;border:3px dashed #3A8DFF;border-radius:12px}
 .hp{position:absolute;left:10%;right:10%;top:-2%;height:9%;background:rgba(0,0,0,.35);border-radius:6px;overflow:hidden}
 .hp i{display:block;height:100%;background:#43B05B}
 .hp i.mid{background:#E2B007}.hp i.low{background:#D8493B}

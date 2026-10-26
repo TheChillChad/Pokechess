@@ -94,6 +94,10 @@
     if (it.name === 'pozione') mine.filter((p) => p.role !== 're' && p.hp < p.maxHp).forEach(mark);
     else if (it.name === 'scudo') mine.filter((p) => !p.shield).forEach(mark);
     else if (it.name === 'cristallo') mine.filter((p) => !p.boost).forEach(mark);
+    else if (it.name === 'metamorfosi') { if (!it.id) mine.filter((p) => p.role !== 're').forEach(mark); else h.sel = it.id; }
+    else if (it.name === 'paralisi' || it.name === 'bomba') {
+      S.pieces.filter((p) => p.alive && p.color !== S.you && p.role !== 're' && !(it.name === 'paralisi' && p.frozen)).forEach(mark);
+    }
     else if (it.name === 'cambio') {
       mine.filter((p) => p.id !== it.first).forEach(mark);
       if (it.first) { const f = byId(it.first); h.sel = f.id; }
@@ -150,6 +154,7 @@
       else if (chk && S.turn === S.you) { main = 'Sei sotto scacco!'; sub = 'Proteggi il Re: spostalo, para o elimina chi lo minaccia'; }
       else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
       else main = S.turn === S.you ? 'Tocca a te' : `Turno del ${teamName(S.turn)}`;
+      if (S.turn === S.you && S.shieldLock) sub = 'Scudo messo: ora muovi un altro pezzo (quello con lo Scudo no)';
       if (chk) alertBadge = true;
     } else if (S.phase === 'over') {
       if (S.winner === null) { main = 'Patta'; dot = null; }
@@ -183,6 +188,8 @@
           const pc = ['pc', 'team-' + p.color];
           if (p.shield) pc.push('shield');
           if (p.boost) pc.push('boost');
+          if (p.frozen) pc.push('frozen');
+          if (S.shieldLock === p.id) pc.push('lock');
           let hp = '';
           if (p.maxHp) {
             const pct = Math.max(0, Math.round((p.hp / p.maxHp) * 100));
@@ -308,7 +315,7 @@
     for (const { i, n } of group(mine)) {
       const def = Sh.ITEMS[i];
       const on = ui.item && ui.item.name === i;
-      const dis = !def.active || !myTurn() || S.phase !== 'play' || (i === 'revitalizzante' && !S.graveyard[S.you].length);
+      const dis = !def.active || !myTurn() || S.phase !== 'play' || (i === 'revitalizzante' && !S.graveyard[S.you].length) || (def.free && S.freeUsed);
       ibox += `<button class="icard ${on ? 'on' : ''}" type="button" data-act="useItem" data-item="${i}" ${dis ? 'disabled' : ''}>
         <div><b>${def.label}</b><span>${def.desc}</span></div><span class="n">×${n}</span></button>`;
     }
@@ -327,7 +334,14 @@
     else if (it.name === 'scudo' || it.name === 'cristallo') msg = 'Clicca il tuo pezzo.';
     else if (it.name === 'cambio') msg = it.first ? 'Ora clicca il secondo pezzo.' : 'Clicca il primo pezzo da scambiare.';
     else if (it.name === 'revitalizzante') msg = it.id ? 'Clicca una casella libera evidenziata.' : 'Scegli quale pezzo riportare in campo:';
+    else if (it.name === 'paralisi') msg = 'Clicca il pezzo avversario da paralizzare.';
+    else if (it.name === 'bomba') msg = 'Clicca il pezzo avversario da bombardare (3 danni).';
+    else if (it.name === 'metamorfosi') msg = it.id ? 'Scegli il nuovo tipo:' : 'Clicca il tuo pezzo da trasformare.';
     let html = `<p style="margin-top:8px"><b>${msg}</b></p>`;
+    if (it.name === 'metamorfosi' && it.id) {
+      const cur = byId(it.id);
+      html += '<div class="typegrid">' + Sh.TYPES.filter((t) => t !== cur.type).map((t) => `<button class="tbtn" type="button" data-act="metaType" data-type="${t}"><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}</button>`).join('') + '</div>';
+    }
     if (it.name === 'revitalizzante' && !it.id) {
       html += '<div class="grave">' + S.graveyard[S.you].map((id) => {
         const p = byId(id);
@@ -353,7 +367,7 @@
         ${p.type ? `<div><small class="mute">Forte contro (×2)</small><div class="chips">${strong.map(chip).join('')}</div>
         <small class="mute">Debole a (subisce ×2)</small><div class="chips">${weak.map(chip).join('')}</div>
         <small class="mute">Resiste a (×0,5)</small><div class="chips">${res.map(chip).join('')}</div></div>` : '<p class="mute">Tipo non ancora assegnato.</p>'}
-        ${p.shield ? '<p><b>Scudo attivo</b>: ignora il prossimo attacco.</p>' : ''}${p.boost ? '<p><b>Cristallo attivo</b>: il prossimo attacco fa ×1,5.</p>' : ''}`;
+        ${p.shield ? '<p><b>Scudo attivo</b>: ignora il prossimo attacco.</p>' : ''}${p.boost ? '<p><b>Cristallo attivo</b>: il prossimo attacco fa ×1,5.</p>' : ''}${p.frozen ? '<p><b>Paralizzato</b>: non può muoversi né attaccare al suo prossimo turno.</p>' : ''}`;
     }
     return `<div class="box info"><div class="big team-${p.color}"><img src="${pieceSprite(p)}" alt=""></div><div style="flex:1;min-width:0"><h3>${esc(pieceName(p))}</h3>${body}</div></div>`;
   }
@@ -399,6 +413,7 @@
       if (!it.first) { it.first = p.id; return render(); }
       socket.emit('item', { item: 'cambio', a: it.first, b: p.id }); ui.item = null; return;
     }
+    if (it.name === 'metamorfosi') { it.id = p.id; return render(); } // poi si sceglie il tipo nel pannello
     socket.emit('item', { item: it.name, id: p.id }); ui.item = null;
   }
 
@@ -417,6 +432,7 @@
       case 'useItem': ui.item = ui.item && ui.item.name === d.item ? null : { name: d.item }; ui.sel = null; render(); break;
       case 'cancelItem': ui.item = null; render(); break;
       case 'grave': ui.item.id = d.id; render(); break;
+      case 'metaType': socket.emit('item', { item: 'metamorfosi', id: ui.item.id, type: d.type }); ui.item = null; break;
       case 'promote': socket.emit('promote', { role: d.role }); break;
       case 'resign': if (confirm('Vuoi davvero arrenderti?')) socket.emit('resign'); break;
       case 'rematch': socket.emit('rematch'); break;
@@ -450,9 +466,9 @@
         <li><b>Statistiche:</b> ${st}.</li>
         <li><b>Re:</b> incolore, senza HP, fa sempre ×2 (6 danni). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
         <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
-        <li><b>Strumenti</b> (costano il turno): ${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `${Sh.ITEMS[i].label}: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
+        <li><b>Strumenti</b> (costano il turno, tranne lo Scudo): ${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>
-        <li>Gli strumenti si possono usare anche sotto scacco, ma solo se tolgono il Re dallo scacco (Cambio, Revitalizzante).</li>
+        <li>Sotto scacco puoi usare uno strumento che costa il turno solo se toglie il Re dallo scacco (Cambio, Revitalizzante, Paralisi o Bomba su chi lo minaccia). Lo Scudo, essendo gratuito, si può usare ma poi devi comunque risolvere lo scacco con una mossa.</li>
       </ul>
       <form method="dialog"><button class="btn">Ho capito</button></form>`;
   }

@@ -222,6 +222,68 @@ t('Revitalizzante riporta un pezzo con metà HP nelle prime due file', () => {
   assert.deepStrictEqual(g.graveyard.w, []);
 });
 
+console.log('Scudo gratuito e nuovi strumenti');
+t('Scudo è un\'azione gratuita: poi muovi un altro pezzo, non quello protetto', () => {
+  const g = startedGame(['scudo', 'scudo', 'pozione']);
+  assert.strictEqual(G.useItem(g, 'w', { item: 'scudo', id: 'w8' }), null);
+  assert.strictEqual(g.turn, 'w', 'il turno non passa');
+  assert.strictEqual(g.pieces.w8.shield, true);
+  assert.ok(G.move(g, 'w', 'w8', 5, 0), 'il pezzo protetto non può muovere in questo turno');
+  assert.ok(G.useItem(g, 'w', { item: 'scudo', id: 'w9' }), 'un solo Scudo per turno');
+  assert.strictEqual(G.move(g, 'w', 'w9', 5, 1), null);
+  assert.strictEqual(g.turn, 'b');
+  assert.strictEqual(g.pieces.w8.shield, true, 'lo Scudo resta finché non para un colpo');
+  assert.strictEqual(g.shieldLock, null, 'il blocco vale solo per il turno');
+  assert.deepStrictEqual(g.items.w, ['scudo', 'pozione'], 'ne è stato consumato uno solo');
+});
+t('Paralisi: il pezzo non muove nel turno avversario, poi torna libero', () => {
+  const g = startedGame(['paralisi', 'pozione', 'scudo']);
+  assert.strictEqual(G.useItem(g, 'w', { item: 'paralisi', id: 'b8' }), null);
+  assert.strictEqual(g.turn, 'b');
+  assert.ok(!G.legalMoves(g, 'b')['b8'], 'nessuna mossa per il pezzo paralizzato');
+  assert.ok(G.move(g, 'b', 'b8', 2, 0));
+  assert.strictEqual(G.move(g, 'b', 'b9', 2, 1), null);
+  assert.strictEqual(g.pieces.b8.frozen, false, 'dopo il suo turno è di nuovo libero');
+  assert.strictEqual(g.turn, 'w');
+});
+t('un pezzo paralizzato non dà scacco', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'b0', 7, 0);
+  assert.strictEqual(G.inCheck(g, 'w'), true);
+  g.pieces.b0.frozen = true;
+  assert.strictEqual(G.inCheck(g, 'w'), false);
+});
+t('Bomba: 3 danni fissi senza tipi, bloccata dallo Scudo, il Re non si bersaglia', () => {
+  const g = startedGame(['bomba', 'bomba', 'bomba']);
+  assert.strictEqual(G.useItem(g, 'w', { item: 'bomba', id: 'b0' }), null);
+  assert.strictEqual(g.pieces.b0.hp, 7);
+  assert.strictEqual(g.turn, 'b');
+  g.turn = 'w'; g.pieces.b1.shield = true;
+  assert.strictEqual(G.useItem(g, 'w', { item: 'bomba', id: 'b1' }), null);
+  assert.strictEqual(g.pieces.b1.hp, 7);
+  assert.strictEqual(g.pieces.b1.shield, false);
+  g.turn = 'w';
+  assert.ok(G.useItem(g, 'w', { item: 'bomba', id: 'b4' }), 'il Re non si può bombardare');
+});
+t('la Bomba può evitare il matto eliminando chi dà scacco', () => {
+  const g = startedGame(['pozione', 'scudo', 'cristallo'], ['bomba', 'pozione', 'scudo']); clear(g);
+  place(g, 'w0', 2, 0, { hp: 2 });
+  place(g, 'w7', 1, 7);
+  assert.strictEqual(G.move(g, 'w', 'w0', 0, 0), null);
+  assert.strictEqual(g.phase, 'play', 'non è matto');
+  assert.strictEqual(G.useItem(g, 'b', { item: 'bomba', id: 'w0' }), null);
+  assert.strictEqual(g.pieces.w0.alive, false);
+});
+t('Metamorfosi cambia il tipo, costa il turno e non vale sul Re', () => {
+  const g = startedGame(['metamorfosi', 'metamorfosi', 'pozione']);
+  const old = g.pieces.w8.type, nt = S.TYPES.find((x) => x !== old);
+  assert.ok(G.useItem(g, 'w', { item: 'metamorfosi', id: 'w8', type: old }), 'stesso tipo rifiutato');
+  assert.ok(G.useItem(g, 'w', { item: 'metamorfosi', id: 'w4', type: nt }), 'il Re è incolore');
+  assert.strictEqual(G.useItem(g, 'w', { item: 'metamorfosi', id: 'w8', type: nt }), null);
+  assert.strictEqual(g.pieces.w8.type, nt);
+  assert.strictEqual(g.turn, 'b');
+});
+
 console.log('Promozione');
 t('senza Pietra il pedone diventa Cavallo', () => {
   const g = startedGame(['pozione', 'scudo', 'cristallo']); clear(g);

@@ -10,7 +10,7 @@ const inb = (r, c) => Number.isInteger(r) && Number.isInteger(c) && r >= 0 && r 
 
 function mkPiece(id, color, role, r, c) {
   const st = S.ROLES[role];
-  return { id, color, role, type: null, hp: st.hp, maxHp: st.hp, atk: st.atk, r, c, alive: true, shield: false, boost: false };
+  return { id, color, role, type: null, hp: st.hp, maxHp: st.hp, atk: st.atk, r, c, alive: true, shield: false, boost: false, frozen: false };
 }
 
 function newGame() {
@@ -31,6 +31,8 @@ function newGame() {
     itemsReady: { w: false, b: false },
     graveyard: { w: [], b: [] },
     pending: null, // { id } promozione in attesa di scelta
+    shieldLock: null, // id del pezzo che ha appena ricevuto lo Scudo: in questo turno non può muovere
+    freeUsed: false, // lo Scudo (azione gratuita) è già stato usato in questo turno
     winner: null, // null con phase 'over' = patta
     reason: null,
     log: [],
@@ -113,7 +115,7 @@ function inCheck(g, color) {
   if (!king) return false;
   const gr = grid(g);
   for (const p of Object.values(g.pieces)) {
-    if (!p.alive || p.color === color) continue;
+    if (!p.alive || p.color === color || p.frozen) continue; // un pezzo paralizzato non può attaccare
     if (movesFor(p, gr).some((m) => m.kind === 'attack' && m.r === king.r && m.c === king.c)) return true;
   }
   return false;
@@ -181,6 +183,7 @@ function legalMoves(g, color) {
   const res = {};
   for (const p of Object.values(g.pieces)) {
     if (!p.alive || p.color !== color) continue;
+    if (p.frozen || g.shieldLock === p.id) continue; // paralizzato, o appena protetto dallo Scudo
     const mv = [];
     for (const m of movesFor(p, gr)) {
       const target = m.kind === 'attack' ? gr[m.r][m.c] : null;
@@ -261,8 +264,51 @@ function applyItem(g, color, a) {
       if (!p) return 'Scegli un tuo pezzo';
       if (p.shield) return 'Ha già uno Scudo';
       p.shield = true;
-      log(g, `${team} usa Scudo su ${name(p)}.`);
+      g.shieldLock = p.id; // azione gratuita: poi si muove un altro pezzo
+      g.freeUsed = true;
+      log(g, `${team} usa Scudo su ${name(p)} (azione gratuita).`);
       event(g, p.r, p.c, 'Scudo', 'buff');
+      return null;
+    }
+    case 'paralisi': {
+      const t = g.pieces[a.id];
+      if (!t || !t.alive || t.color === color || t.role === 're') return 'Scegli un pezzo avversario (il Re non si può paralizzare)';
+      if (t.frozen) return 'È già paralizzato';
+      t.frozen = true;
+      log(g, `${team} usa Paralisi su ${name(t)}: salta il prossimo turno.`);
+      event(g, t.r, t.c, 'Paralisi', 'buff');
+      return null;
+    }
+    case 'metamorfosi': {
+      const p = own(g, color, a.id);
+      if (!p || p.role === 're') return 'Scegli un tuo pezzo (il Re è incolore)';
+      if (!S.TYPES.includes(a.type)) return 'Scegli un tipo';
+      if (p.type === a.type) return 'Ha già questo tipo';
+      const old = p.type;
+      p.type = a.type;
+      log(g, `${team} usa Metamorfosi: ${cap(p.role)} passa da ${old ? cap(old) : 'nessun tipo'} a ${cap(a.type)}.`);
+      event(g, p.r, p.c, cap(a.type), 'buff');
+      return null;
+    }
+    case 'bomba': {
+      const t = g.pieces[a.id];
+      if (!t || !t.alive || t.color === color || t.role === 're') return 'Scegli un pezzo avversario (il Re non si può colpire)';
+      if (t.shield) {
+        t.shield = false;
+        log(g, `${team} lancia una Bomba su ${name(t)}: lo Scudo la blocca!`);
+        event(g, t.r, t.c, 'Bloccato', 'block');
+      } else {
+        t.hp = Math.max(0, t.hp - 3);
+        if (t.hp === 0) {
+          t.alive = false;
+          g.graveyard[t.color].push(t.id);
+          log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP, sconfitto!`);
+          event(g, t.r, t.c, '−3', 'kill');
+        } else {
+          log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP (restano ${t.hp}).`);
+          event(g, t.r, t.c, '−3', 'hit');
+        }
+      }
       return null;
     }
     case 'cristallo': {
@@ -295,7 +341,7 @@ function applyItem(g, color, a) {
       if (grid(g)[a.r][a.c]) return 'La casella è occupata';
       p.alive = true; p.r = a.r; p.c = a.c;
       p.hp = Math.ceil(p.maxHp / 2);
-      p.shield = false; p.boost = false;
+      p.shield = false; p.boost = false; p.frozen = false;
       g.graveyard[color] = g.graveyard[color].filter((x) => x !== a.id);
       log(g, `${team} usa Revitalizzante: torna ${name(p)} con ${p.hp} HP.`);
       event(g, p.r, p.c, 'Torna!', 'heal');
@@ -325,6 +371,13 @@ function itemCanResolve(g, color) {
       if (works({ item: 'revitalizzante', id, r, c })) return true;
     }
   }
+  // Paralisi e Bomba tolgono di mezzo chi dà scacco
+  for (const item of ['paralisi', 'bomba']) {
+    if (!kit.includes(item)) continue;
+    for (const t of Object.values(g.pieces)) {
+      if (t.alive && t.color !== color && t.role !== 're' && works({ item, id: t.id })) return true;
+    }
+  }
   return false;
 }
 
@@ -333,7 +386,11 @@ function endTurn(g) {
   if (g.phase === 'over') return;
   const prev = g.turn;
   const next = other(prev);
+  // la Paralisi dura un solo turno: finisce quando chi la subiva ha "saltato" il suo
+  for (const p of Object.values(g.pieces)) if (p.color === prev) p.frozen = false;
   g.turn = next;
+  g.shieldLock = null;
+  g.freeUsed = false;
   const chk = inCheck(g, next);
   const noMoves = Object.keys(legalMoves(g, next)).length === 0;
   const king = Object.values(g.pieces).find((p) => p.alive && p.color === next && p.role === 're');
@@ -369,6 +426,8 @@ function move(g, color, id, r, c) {
   if (g.pending) return 'Scegli prima la promozione';
   const p = own(g, color, id);
   if (!p) return 'Pezzo non valido';
+  if (p.frozen) return 'Questo pezzo è paralizzato';
+  if (g.shieldLock === p.id) return 'Ha appena ricevuto lo Scudo: muovi un altro pezzo';
   if (!movesFor(p, grid(g)).find((m) => m.r === r && m.c === c)) return 'Mossa non valida';
   if (!(legalMoves(g, color)[id] || []).find((m) => m.r === r && m.c === c)) {
     return inCheck(g, color) ? 'Sei sotto scacco: quella mossa non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
@@ -407,14 +466,22 @@ function useItem(g, color, a) {
   if (!a || typeof a.item !== 'string') return 'Strumento non valido';
   const idx = g.items[color].indexOf(a.item);
   if (idx < 0) return 'Non hai questo strumento';
-  // prova su una copia: lo strumento non deve lasciare il Re sotto scacco
+  const free = !!(S.ITEMS[a.item] && S.ITEMS[a.item].free);
+  if (free && g.freeUsed) return 'Hai già usato lo Scudo in questo turno';
+  // prova su una copia
   const sim = simClone(g);
   const err = applyItem(sim, color, a);
   if (err) return err;
-  if (inCheck(sim, color)) return inCheck(g, color) ? 'Sei sotto scacco: questo strumento non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
+  if (free) {
+    // azione gratuita: dopo deve restare almeno una mossa possibile con un altro pezzo
+    if (Object.keys(legalMoves(sim, color)).length === 0) return 'Dopo lo Scudo non ti resterebbe nessuna mossa';
+  } else if (inCheck(sim, color)) {
+    // gli strumenti che costano il turno non devono lasciare il Re sotto scacco
+    return inCheck(g, color) ? 'Sei sotto scacco: questo strumento non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
+  }
   applyItem(g, color, a);
   g.items[color].splice(idx, 1);
-  endTurn(g);
+  if (!free) endTurn(g);
   return null;
 }
 
@@ -448,6 +515,8 @@ function publicState(room, color) {
     graveyard: g.graveyard,
     pending: g.pending && g.turn === color ? g.pending : null,
     pendingBy: g.pending ? g.turn : null,
+    shieldLock: g.shieldLock,
+    freeUsed: g.freeUsed,
     check: { w: live && inCheck(g, 'w'), b: live && inCheck(g, 'b') },
     legal: myTurn ? legalMoves(g, color) : {},
     winner: g.winner,
