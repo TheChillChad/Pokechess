@@ -136,20 +136,27 @@
   }
 
   function renderStatus() {
-    let main = '', sub = '', dot = S.turn;
+    let main = '', sub = '', dot = S.turn, alertBadge = false;
     if (S.phase === 'lobby') { main = 'In attesa dell\'avversario'; sub = 'Manda il link o il codice ' + S.code; dot = null; }
     else if (S.phase === 'draft') {
+      const again = S.picks + 1 < Sh.DRAFT_PICKS && Sh.draftTurn(S.picks + 1) === S.turn;
       main = S.turn === S.you ? 'Tocca a te: assegna un tipo' : `Sta scegliendo il ${teamName(S.turn)}`;
-      sub = `Draft dei tipi ${S.picks}/30`;
+      sub = `Draft dei tipi ${S.picks}/${Sh.DRAFT_PICKS}` + (again ? ' · sceglie due volte di fila' : '');
     } else if (S.phase === 'items') {
       main = 'Scegli i tuoi 3 strumenti'; sub = 'Poi si parte'; dot = null;
     } else if (S.phase === 'play') {
+      const chk = !!(S.check && S.check[S.turn]);
       if (S.pendingBy) main = S.pendingBy === S.you ? 'Scegli la promozione del pedone' : `Il ${teamName(S.pendingBy)} sta promuovendo`;
+      else if (chk && S.turn === S.you) { main = 'Sei sotto scacco!'; sub = 'Proteggi il Re: spostalo, para o elimina chi lo minaccia'; }
+      else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
       else main = S.turn === S.you ? 'Tocca a te' : `Turno del ${teamName(S.turn)}`;
+      if (chk) alertBadge = true;
     } else if (S.phase === 'over') {
-      main = S.winner === S.you ? 'Hai vinto!' : 'Hai perso'; sub = S.reason || ''; dot = S.winner;
+      if (S.winner === null) { main = 'Patta'; dot = null; }
+      else main = S.winner === S.you ? 'Hai vinto!' : 'Hai perso';
+      sub = S.reason || ''; if (S.winner) dot = S.winner;
     }
-    $('#status').innerHTML = `${dot ? `<span class="tdot team-${dot}"></span>` : ''}<span>${main}</span><span class="sub">${esc(sub)}</span>`;
+    $('#status').innerHTML = `${dot ? `<span class="tdot team-${dot}"></span>` : ''}${alertBadge ? '<span class="badge-check">SCACCO</span>' : ''}<span>${main}</span><span class="sub">${esc(sub)}</span>`;
   }
 
   function renderBoard() {
@@ -163,6 +170,7 @@
         const p = pieceAt(r, c);
         const cls = ['sq', (r + c) % 2 ? 'dk' : ''];
         if (h.last[key]) cls.push('last');
+        if (p && p.role === 're' && S.check && S.check[p.color]) cls.push('chk');
         if (h.sel && p && p.id === h.sel) cls.push('sel');
         if (h.move[key]) cls.push('mv', 'clickable');
         if (h.atk[key]) cls.push('at', 'clickable');
@@ -278,7 +286,8 @@
   function playPanel() {
     let html = '';
     if (S.phase === 'over') {
-      html += `<div class="banner ${S.winner === S.you ? 'win' : 'lose'}">${S.winner === S.you ? 'Hai vinto!' : 'Hai perso'}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
+      const res = S.winner === null ? ['draw', 'Patta'] : S.winner === S.you ? ['win', 'Hai vinto!'] : ['lose', 'Hai perso'];
+      html += `<div class="banner ${res[0]}">${res[1]}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
         <button class="btn primary" type="button" data-act="rematch">Rivincita (colori scambiati)</button>`;
     }
     if (S.pending) {
@@ -335,7 +344,7 @@
     let body;
     if (p.role === 're') {
       body = `<dl><dt>Squadra</dt><dd>${teamName(p.color)}</dd><dt>Tipo</dt><dd>Incolore</dd><dt>Danno</dt><dd>${p.atk} × 2 = ${p.atk * 2} sempre</dd><dt>HP</dt><dd>nessuno</dd></dl>
-        <p class="mute">Se viene colpito, la partita è persa.</p>`;
+        <p class="mute">Non si può colpire: si perde per scacco matto. Non puoi lasciarlo sotto scacco.</p>`;
     } else {
       const strong = p.type ? Sh.STRONG[p.type] : [];
       const weak = p.type ? Sh.TYPES.filter((t) => Sh.STRONG[t].includes(p.type)) : [];
@@ -439,11 +448,11 @@
         <li><b>Muovi come negli scacchi.</b> Niente arrocco né presa al varco.</li>
         <li><b>Catturare = attaccare.</b> Il bersaglio perde HP pari all'attacco, modificato dal tipo (×2, ×0,5). Se sopravvive, il tuo pezzo resta dov'è. Se muore, occupi la casella.</li>
         <li><b>Statistiche:</b> ${st}.</li>
-        <li><b>Re:</b> incolore, senza HP, fa sempre ×2 (6 danni). <b>Se un pezzo colpisce il Re, la partita finisce.</b> Non c'è scacco matto: proteggilo!</li>
-        <li><b>Prima di giocare:</b> draft a turno dei tipi (ognuno al massimo 2 volte a testa), poi scegli 3 strumenti.</li>
+        <li><b>Re:</b> incolore, senza HP, fa sempre ×2 (6 danni). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
+        <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
         <li><b>Strumenti</b> (costano il turno): ${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `${Sh.ITEMS[i].label}: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>
-        <li>Se non hai nessuna mossa, perdi.</li>
+        <li>Gli strumenti si possono usare anche sotto scacco, ma solo se tolgono il Re dallo scacco (Cambio, Revitalizzante).</li>
       </ul>
       <form method="dialog"><button class="btn">Ho capito</button></form>`;
   }

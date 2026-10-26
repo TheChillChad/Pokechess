@@ -41,7 +41,7 @@
     alfiere: { label: 'Alfiere', hp: 7, atk: 4 },
     torre: { label: 'Torre', hp: 10, atk: 5 },
     regina: { label: 'Regina', hp: 12, atk: 7 },
-    re: { label: 'Re', hp: null, atk: 3 }, // il Re non ha HP e fa sempre ×2
+    re: { label: 'Re', hp: null, atk: 3 }, // il Re non ha HP, fa sempre ×2 e non si può colpire: si perde per scacco matto
   };
 
   const ITEMS = {
@@ -57,6 +57,11 @@
   const TEAM = { w: 'Blu', b: 'Rosso' };
   const MAX_PER_TYPE = 2;
   const KIT_SIZE = 3;
+  const DRAFT_PICKS = 30; // 15 pezzi a testa (il Re non ha tipo)
+
+  // Ordine del draft a serpentina: Blu, Rosso, Rosso, Blu, Blu, Rosso, Rosso, Blu…
+  // (i = numero di scelte già fatte). L'ultima scelta, la 30ª, è del Rosso, che muove per secondo.
+  function draftTurn(i) { return i % 4 === 0 || i % 4 === 3 ? 'w' : 'b'; }
 
   // moltiplicatore di tipo: attaccante -> difensore
   function mult(attType, defType) {
@@ -66,5 +71,5 @@
     return 1;
   }
 
-  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, mult };
+  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult };
 });

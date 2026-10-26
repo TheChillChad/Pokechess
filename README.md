@@ -18,8 +18,8 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 - Si muove come negli scacchi (senza arrocco né presa al varco).
 - **Catturare = attaccare**: il bersaglio perde HP pari all'attacco del pezzo, moltiplicato per il tipo (×2 / ×0,5). Se sopravvive, l'attaccante resta fermo. Se muore, l'attaccante occupa la casella.
 - HP / attacco: Pedone 4/2, Cavallo 7/4, Alfiere 7/4, Torre 10/5, Regina 12/7.
-- **Re**: incolore, senza HP, fa sempre ×2 (6 danni). Se un pezzo colpisce il Re la partita finisce (non c'è scacco matto). Chi non ha mosse perde.
-- **Draft dei tipi**: i 30 pezzi (15 a testa, senza Re) ricevono un tipo a turno alternato, il Blu comincia e il Rosso sceglie per ultimo. Ogni tipo si usa al massimo 2 volte a testa.
+- **Re**: incolore, senza HP, fa sempre ×2 (6 danni). Non si può colpire: valgono scacco e scacco matto come negli scacchi. Se il Re è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Gli strumenti si possono usare sotto scacco solo se lo risolvono (Cambio, Revitalizzante). Senza mosse e senza scacco è patta (stallo).
+- **Draft dei tipi**: i 30 pezzi (15 a testa, senza Re) ricevono un tipo a serpentina: Blu, Rosso, Rosso, Blu, Blu, Rosso… L'ultima scelta è del Rosso, che muove per secondo. Ogni tipo si usa al massimo 2 volte a testa.
 - **Strumenti** (3 a testa, anche doppioni, ognuno costa il turno): Pozione, Revitalizzante, Scudo, Cristallo, Cambio, Pietra Evolutiva (passiva: alla promozione scegli il pezzo; senza Pietra il pedone diventa Cavallo).
 - Dopo la partita c'è la rivincita, con i colori scambiati.
 
@@ -33,7 +33,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Interfaccia | `public/index.html`, `style.css`, `client.js` |
 | Grafica dei pezzi | `public/sprites/` |
 
-Dopo aver toccato le regole: `npm test` (20 test sulla logica).
+Dopo aver toccato le regole: `npm test` (26 test sulla logica).
 
 ## Cambiare gli sprite
 

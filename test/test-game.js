@@ -91,23 +91,86 @@ t('danno super efficace uccide e l\'attaccante avanza', () => {
 t('il Re fa sempre 6 (3×2) ignorando i tipi', () => {
   const g = startedGame(); clear(g);
   place(g, 'w4', 4, 4);
-  place(g, 'b0', 4, 5, { type: 'fuoco' });
+  place(g, 'b8', 4, 5, { type: 'fuoco' });   // pedone nero, non minaccia il Re
   const m = G.legalMoves(g, 'w')['w4'].find((x) => x.r === 4 && x.c === 5);
   assert.strictEqual(m.dmg, 6);
   assert.strictEqual(m.eff, 1);
 });
-t('colpire il Re avversario vince la partita', () => {
+t('il Re non si può mai colpire: nessun attacco sul Re tra le mosse legali', () => {
   const g = startedGame(); clear(g);
   place(g, 'w0', 4, 0, { type: 'fuoco' });
-  g.pieces.b4.r = 4; g.pieces.b4.c = 6;
-  assert.strictEqual(G.move(g, 'w', 'w0', 4, 6), null);
-  assert.strictEqual(g.phase, 'over');
-  assert.strictEqual(g.winner, 'w');
+  g.pieces.b4.r = 4; g.pieces.b4.c = 6; // Re nero in linea con la torre: è sotto scacco
+  const mv = G.legalMoves(g, 'w')['w0'] || [];
+  assert.ok(!mv.find((m) => m.r === 4 && m.c === 6));
+  assert.ok(G.move(g, 'w', 'w0', 4, 6));
+  assert.strictEqual(g.phase, 'play');
 });
 t('non puoi muovere nel turno dell\'avversario né pezzi altrui', () => {
   const g = startedGame();
   assert.ok(G.move(g, 'b', 'b8', 3, 0));
   assert.ok(G.move(g, 'w', 'b8', 3, 0));
+});
+
+console.log('Scacco, matto, stallo');
+t('scacco: la mossa che lo dà avvisa e l\'avversario può rispondere solo risolvendolo', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 3, 0);        // torre bianca
+  place(g, 'b0', 1, 7);        // torre nera, per bloccare
+  assert.strictEqual(G.inCheck(g, 'b'), false);
+  assert.strictEqual(G.move(g, 'w', 'w0', 0, 0), null); // dà scacco al Re nero in (0,4)
+  assert.strictEqual(G.inCheck(g, 'b'), true);
+  assert.ok(g.log[g.log.length - 1].includes('Scacco al Re Rosso'));
+  const legal = G.legalMoves(g, 'b');
+  assert.ok(Object.keys(legal).length > 0, 'il Re può ancora scappare o parare');
+  assert.ok(G.move(g, 'b', 'b0', 4, 7), 'una mossa che non risolve lo scacco è rifiutata'); // (1,7)->(4,7) non protegge
+  assert.strictEqual(G.move(g, 'b', 'b4', 1, 4), null, 'il Re scappa fuori dalla riga attaccata');
+  assert.strictEqual(G.inCheck(g, 'b'), false);
+});
+t('il Re non può muovere su una casella attaccata', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 5, 3); // torre bianca sulla colonna 3
+  const mv = (G.legalMoves(g, 'b')['b4'] || []).map((m) => m.r + ',' + m.c);
+  assert.ok(!mv.includes('0,3') && !mv.includes('1,3'), 'colonna 3 attaccata');
+  assert.ok(mv.includes('0,5') && mv.includes('1,5'));
+});
+t('un attacco che non uccide chi dà scacco non risolve lo scacco', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 0, 0, { type: 'fuoco' });                 // torre bianca che dà scacco, 10 HP
+  place(g, 'b3', 2, 0, { type: 'erba', atk: 1 });          // regina nera che potrebbe colpirla ma fa pochi danni
+  g.pieces.b3.role = 'regina';
+  g.turn = 'b';
+  const legal = G.legalMoves(g, 'b')['b3'] || [];
+  assert.ok(!legal.find((m) => m.r === 0 && m.c === 0), 'colpire senza uccidere non basta');
+});
+t('scacco matto: partita finita e vincitore', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 2, 0);   // torre che darà scacco sulla riga 0
+  place(g, 'w7', 1, 7);   // torre che copre la riga 1
+  assert.strictEqual(G.move(g, 'w', 'w0', 0, 0), null);
+  assert.strictEqual(g.phase, 'over');
+  assert.strictEqual(g.winner, 'w');
+  assert.ok(g.reason.includes('Scacco matto'));
+});
+t('stallo: patta', () => {
+  const g = startedGame(); clear(g);
+  g.pieces.b4.r = 0; g.pieces.b4.c = 0;     // Re nero in angolo
+  place(g, 'w3', 3, 1, { role: 'regina', hp: 12, maxHp: 12, atk: 7 });
+  assert.strictEqual(G.move(g, 'w', 'w3', 2, 1), null); // la Regina toglie ogni casella al Re, senza dare scacco
+  assert.strictEqual(g.phase, 'over');
+  assert.strictEqual(g.winner, null);
+  assert.ok(g.reason.includes('Stallo'));
+});
+t('uno strumento può togliere dallo scacco (Revitalizzante che blocca la linea)', () => {
+  const g = startedGame(['pozione', 'scudo', 'cristallo'], ['revitalizzante', 'pozione', 'scudo']); clear(g);
+  place(g, 'w0', 0, 0);                       // torre bianca che dà scacco
+  place(g, 'b3', 1, 3);                       // regina nera: il Re ha una via di fuga? (1,3) occupata da lei
+  g.pieces.b3.alive = false;
+  g.graveyard.b = ['b1'];                     // cavallo nero sconfitto
+  g.turn = 'b';
+  assert.ok(G.useItem(g, 'b', { item: 'pozione', id: 'b1' }), 'Pozione non risolve lo scacco');
+  assert.strictEqual(G.useItem(g, 'b', { item: 'revitalizzante', id: 'b1', r: 0, c: 2 }), null);
+  assert.strictEqual(g.pieces.b1.r, 0);
+  assert.strictEqual(g.turn, 'w');
 });
 
 console.log('Strumenti');
@@ -182,27 +245,37 @@ t('con Pietra si sceglie il ruolo e la Pietra si consuma', () => {
 });
 
 console.log('Draft e strumenti iniziali');
-t('draft: massimo 2 per tipo, turni alternati, 30 scelte', () => {
+t('draft a serpentina: B R R B B R R B … e l\'ultima scelta è del Rosso', () => {
   const g = G.newGame(); g.phase = 'draft';
   const mine = { w: Object.values(g.pieces).filter((p) => p.color === 'w' && p.role !== 're'), b: Object.values(g.pieces).filter((p) => p.color === 'b' && p.role !== 're') };
   assert.ok(G.draftPick(g, 'b', mine.b[0].id, 'fuoco'), 'il Blu comincia');
   assert.strictEqual(G.draftPick(g, 'w', mine.w[0].id, 'fuoco'), null);
-  assert.ok(G.draftPick(g, 'w', mine.w[1].id, 'fuoco'), 'non è più il suo turno');
+  assert.ok(G.draftPick(g, 'w', mine.w[1].id, 'fuoco'), 'ora tocca al Rosso');
   assert.strictEqual(G.draftPick(g, 'b', mine.b[0].id, 'fuoco'), null);
-  assert.strictEqual(G.draftPick(g, 'w', mine.w[1].id, 'fuoco'), null);
+  assert.strictEqual(g.turn, 'b', 'il Rosso sceglie due volte di fila');
   assert.strictEqual(G.draftPick(g, 'b', mine.b[1].id, 'fuoco'), null);
+  assert.strictEqual(g.turn, 'w');
+  assert.strictEqual(G.draftPick(g, 'w', mine.w[1].id, 'fuoco'), null);
   assert.ok(G.draftPick(g, 'w', mine.w[2].id, 'fuoco'), 'terzo fuoco rifiutato');
-  // completa il draft
+  // completa il draft registrando chi sceglie
+  const order = ['w', 'b', 'b', 'w']; // le prime 4 scelte fatte a mano qui sopra
   let guard = 0;
   while (g.phase === 'draft' && guard++ < 100) {
     const color = g.turn;
+    order.push(color);
     const piece = mine[color].find((p) => !p.type);
     const counts = G.typeCounts(g)[color];
     const type = S.TYPES.find((x) => counts[x] < 2);
     assert.strictEqual(G.draftPick(g, color, piece.id, type), null);
   }
+  // l'ordine registrato segue B R R B B R R B … per tutte le 29 scelte prima dell'ultima
+  assert.strictEqual(order.length, 30);
+  order.slice(0, 30).forEach((c, i) => assert.strictEqual(c, S.draftTurn(i), 'scelta ' + i));
+  assert.strictEqual(S.draftTurn(29), 'b');
   assert.strictEqual(g.phase, 'items');
   assert.strictEqual(g.picks, 30);
+  const bluPicks = Array.from({ length: 30 }, (_, i) => S.draftTurn(i)).filter((c) => c === 'w').length;
+  assert.strictEqual(bluPicks, 15);
 });
 t('scelta strumenti: 3 a testa, la partita parte quando entrambi hanno scelto', () => {
   const g = G.newGame(); g.phase = 'items';
