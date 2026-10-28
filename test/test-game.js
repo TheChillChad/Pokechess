@@ -236,15 +236,37 @@ t('Scudo è un\'azione gratuita: poi muovi un altro pezzo, non quello protetto',
   assert.strictEqual(g.shieldLock, null, 'il blocco vale solo per il turno');
   assert.deepStrictEqual(g.items.w, ['scudo', 'pozione'], 'ne è stato consumato uno solo');
 });
-t('Paralisi: il pezzo non muove nel turno avversario, poi torna libero', () => {
+t('Paralisi è gratuita: poi muovi, e il pezzo non muove nel turno avversario', () => {
   const g = startedGame(['paralisi', 'pozione', 'scudo']);
   assert.strictEqual(G.useItem(g, 'w', { item: 'paralisi', id: 'b8' }), null);
+  assert.strictEqual(g.turn, 'w', 'il turno non passa');
+  assert.strictEqual(G.move(g, 'w', 'w8', 5, 0), null, 'puoi muovere qualunque pezzo');
   assert.strictEqual(g.turn, 'b');
   assert.ok(!G.legalMoves(g, 'b')['b8'], 'nessuna mossa per il pezzo paralizzato');
-  assert.ok(G.move(g, 'b', 'b8', 2, 0));
+  assert.ok(G.move(g, 'b', 'b8', 2, 0), 'mossa rifiutata');
   assert.strictEqual(G.move(g, 'b', 'b9', 2, 1), null);
   assert.strictEqual(g.pieces.b8.frozen, false, 'dopo il suo turno è di nuovo libero');
   assert.strictEqual(g.turn, 'w');
+});
+t('una sola azione gratuita per turno (Scudo o Paralisi)', () => {
+  const g = startedGame(['scudo', 'paralisi', 'pozione']);
+  assert.strictEqual(G.useItem(g, 'w', { item: 'scudo', id: 'w8' }), null);
+  assert.ok(G.useItem(g, 'w', { item: 'paralisi', id: 'b8' }), 'la seconda azione gratuita è rifiutata');
+  assert.strictEqual(g.pieces.b8.frozen, false);
+  assert.strictEqual(G.move(g, 'w', 'w9', 5, 1), null);
+  // nel turno dopo il contatore si azzera
+  assert.strictEqual(G.move(g, 'b', 'b9', 2, 1), null);
+  assert.strictEqual(G.useItem(g, 'w', { item: 'paralisi', id: 'b10' }), null);
+});
+t('la Paralisi su chi dà scacco evita il matto, ma poi devi muovere', () => {
+  const g = startedGame(['pozione', 'scudo', 'cristallo'], ['paralisi', 'pozione', 'scudo']); clear(g);
+  place(g, 'w0', 2, 0);
+  place(g, 'w7', 1, 7);
+  assert.strictEqual(G.move(g, 'w', 'w0', 0, 0), null);
+  assert.strictEqual(g.phase, 'play', 'non è matto');
+  assert.strictEqual(G.useItem(g, 'b', { item: 'paralisi', id: 'w0' }), null);
+  assert.strictEqual(g.turn, 'b', 'è gratuita: il Rosso deve ancora muovere');
+  assert.strictEqual(G.move(g, 'b', 'b4', 0, 3), null);
 });
 t('un pezzo paralizzato non dà scacco', () => {
   const g = startedGame(); clear(g);

@@ -155,6 +155,7 @@
       else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
       else main = S.turn === S.you ? 'Tocca a te' : `Turno del ${teamName(S.turn)}`;
       if (S.turn === S.you && S.shieldLock) sub = 'Scudo messo: ora muovi un altro pezzo (quello con lo Scudo no)';
+      else if (S.turn === S.you && S.freeUsed) sub = 'Azione gratuita usata: ora muovi un pezzo';
       if (chk) alertBadge = true;
     } else if (S.phase === 'over') {
       if (S.winner === null) { main = 'Patta'; dot = null; }
@@ -466,9 +467,9 @@
         <li><b>Statistiche:</b> ${st}.</li>
         <li><b>Re:</b> incolore, senza HP, fa sempre ×2 (6 danni). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
         <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
-        <li><b>Strumenti</b> (costano il turno, tranne lo Scudo): ${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
+        <li><b>Strumenti</b> (costano il turno, tranne Scudo e Paralisi: azioni gratuite, una sola per turno, dopo le quali muovi un pezzo):${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>
-        <li>Sotto scacco puoi usare uno strumento che costa il turno solo se toglie il Re dallo scacco (Cambio, Revitalizzante, Paralisi o Bomba su chi lo minaccia). Lo Scudo, essendo gratuito, si può usare ma poi devi comunque risolvere lo scacco con una mossa.</li>
+        <li>Sotto scacco puoi usare uno strumento che costa il turno solo se toglie il Re dallo scacco (Cambio, Revitalizzante o Bomba su chi lo minaccia). Scudo e Paralisi sono gratuiti: li puoi usare (la Paralisi su chi dà scacco lo toglie), ma poi devi comunque muovere e il Re non può restare sotto scacco.</li>
       </ul>
       <form method="dialog"><button class="btn">Ho capito</button></form>`;
   }

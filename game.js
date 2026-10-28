@@ -275,7 +275,8 @@ function applyItem(g, color, a) {
       if (!t || !t.alive || t.color === color || t.role === 're') return 'Scegli un pezzo avversario (il Re non si può paralizzare)';
       if (t.frozen) return 'È già paralizzato';
       t.frozen = true;
-      log(g, `${team} usa Paralisi su ${name(t)}: salta il prossimo turno.`);
+      g.freeUsed = true; // azione gratuita: poi si muove un pezzo
+      log(g, `${team} usa Paralisi su ${name(t)} (azione gratuita): salta il prossimo turno.`);
       event(g, t.r, t.c, 'Paralisi', 'buff');
       return null;
     }
@@ -358,7 +359,10 @@ function itemCanResolve(g, color) {
   const works = (a) => {
     const sim = simClone(g);
     if (applyItem(sim, color, a)) return false;
-    return !inCheck(sim, color);
+    if (inCheck(sim, color)) return false;
+    // le azioni gratuite non passano il turno: dopo deve restare una mossa da fare
+    if (S.ITEMS[a.item] && S.ITEMS[a.item].free && Object.keys(legalMoves(sim, color)).length === 0) return false;
+    return true;
   };
   if (kit.includes('cambio')) {
     const mine = Object.values(g.pieces).filter((p) => p.alive && p.color === color);
@@ -467,14 +471,14 @@ function useItem(g, color, a) {
   const idx = g.items[color].indexOf(a.item);
   if (idx < 0) return 'Non hai questo strumento';
   const free = !!(S.ITEMS[a.item] && S.ITEMS[a.item].free);
-  if (free && g.freeUsed) return 'Hai già usato lo Scudo in questo turno';
+  if (free && g.freeUsed) return 'Hai già usato un\'azione gratuita in questo turno';
   // prova su una copia
   const sim = simClone(g);
   const err = applyItem(sim, color, a);
   if (err) return err;
   if (free) {
     // azione gratuita: dopo deve restare almeno una mossa possibile con un altro pezzo
-    if (Object.keys(legalMoves(sim, color)).length === 0) return 'Dopo lo Scudo non ti resterebbe nessuna mossa';
+    if (Object.keys(legalMoves(sim, color)).length === 0) return 'Dopo non ti resterebbe nessuna mossa: scegli un altro strumento';
   } else if (inCheck(sim, color)) {
     // gli strumenti che costano il turno non devono lasciare il Re sotto scacco
     return inCheck(g, color) ? 'Sei sotto scacco: questo strumento non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
