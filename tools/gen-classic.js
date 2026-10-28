@@ -42,8 +42,8 @@ function piece(role, c, withBadge) {
   let svg = fs.readFileSync(path.join(SRC, FILES[role] + '.svg'), 'utf8');
   svg = svg.replace(/fill="#fff"/g, `fill="${c.body}"`);
   const inner = svg.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
-  const badge = withBadge ? `<circle cx="36.5" cy="36.5" r="8.5" fill="${c.body}" stroke="${c.dark}" stroke-width="1.6"/>
-<svg x="30.5" y="30.5" width="12" height="12" viewBox="0 0 24 24">${SYMBOLS[c.symbol](c)}</svg>` : '';
+  const badge = withBadge ? `<circle cx="35.5" cy="35.5" r="7.5" fill="${c.body}" stroke="${c.dark}" stroke-width="1.6"/>
+<svg x="30" y="30" width="11" height="11" viewBox="0 0 24 24">${SYMBOLS[c.symbol](c)}</svg>` : '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="45" height="45" viewBox="0 0 45 45">${inner}${badge}</svg>`;
 }
 const write = (name, content) => fs.writeFileSync(path.join(OUT, name + '.svg'), content);
