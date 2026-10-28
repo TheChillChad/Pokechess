@@ -40,13 +40,15 @@ Dopo aver toccato le regole: `npm test` (39 test sulla logica; `node test/test-b
 
 ## Cambiare gli sprite
 
+Set attuale (`classico`): i pezzi di scacchi tradizionali (Cburnett, CC BY-SA 3.0) ricolorati col colore del tipo, con il simbolo del tipo in basso a destra; si rigenera con `node tools/gen-classic.js`. Il set originale con le creature è ancora in `public/sprites/mostri/` (provalo con `?sprites=mostri`).
+
 Ogni pezzo è un file con nome fisso: `<ruolo>_<tipo>.svg` (es. `pedone_fuoco.svg`), più `<ruolo>_neutro.svg` (pezzo senza tipo ancora), `re.svg` e `tipo_<tipo>.svg` (icone dei tipi). Ruoli: pedone, cavallo, alfiere, torre, regina. Tipi: fuoco, acqua, erba, elettro, ghiaccio, psico, buio, folletto.
 
-1. Copia `public/sprites/mostri/` in `public/sprites/nuovo/` e sostituisci i file (SVG, quadrati, meglio con la base in basso).
+1. Copia `public/sprites/classico/` in `public/sprites/nuovo/` e sostituisci i file (SVG, quadrati, meglio con la base in basso).
 2. Per provarlo apri il gioco con `?sprites=nuovo`.
 3. Per renderlo definitivo cambia il valore predefinito in `public/config.js`.
 
-I formati diversi da SVG richiedono di cambiare l'estensione in `client.js` (funzione `sprite`). Gli sprite attuali sono creature originali generate da `npm run sprites` (`tools/gen-sprites.js`).
+I formati diversi da SVG richiedono di cambiare l'estensione in `client.js` (funzione `sprite`). Il set `mostri` è generato da `npm run sprites` (`tools/gen-sprites.js`).
 
 > Se userai personaggi Pokémon o disegni di altri come sprite, vale per loro il diritto d'autore: va bene per giocare tra amici, non per pubblicare o vendere il gioco.
 
