@@ -17,7 +17,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 
 ## Regole in breve
 
-- Si muove come negli scacchi (senza arrocco né presa al varco: al loro posto ci sono gli strumenti).
+- Si muove come negli scacchi (con l'arrocco, corto e lungo, alle regole classiche: Re e Torre mai mossi, caselle libere, Re non sotto scacco né attraverso caselle minacciate; niente presa al varco).
 - **Catturare = attaccare**: il bersaglio perde HP pari all'attacco del pezzo, moltiplicato per il tipo (×2 / ×0,5). Se sopravvive, l'attaccante resta fermo. Se muore, l'attaccante occupa la casella.
 - HP / attacco: Pedone 4/2, Cavallo 7/4, Alfiere 7/4, Torre 10/5, Regina 12/7.
 - **Re**: incolore, senza HP, elimina in un colpo qualsiasi pezzo (lo Scudo lo ferma). Non si può colpire: valgono scacco e scacco matto come negli scacchi. Se il Re è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Sotto scacco uno strumento che costa il turno si può usare solo se toglie il Re dallo scacco (Cambio, Revitalizzante, Bomba su chi lo minaccia); Scudo e Paralisi sono gratuiti ma poi devi comunque muovere. Senza mosse e senza scacco è patta (stallo).
@@ -36,7 +36,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Interfaccia | `public/index.html`, `style.css`, `client.js` |
 | Grafica dei pezzi | `public/sprites/` |
 
-Dopo aver toccato le regole: `npm test` (36 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
+Dopo aver toccato le regole: `npm test` (39 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
 
 ## Cambiare gli sprite
 

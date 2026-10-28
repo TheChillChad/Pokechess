@@ -132,6 +132,43 @@ t('non puoi muovere nel turno dell\'avversario né pezzi altrui', () => {
   assert.ok(G.move(g, 'w', 'b8', 3, 0));
 });
 
+console.log('Arrocco');
+const castleOf = (g, color, id) => (G.legalMoves(g, color)[id] || []).filter((m) => m.kind === 'castle');
+t('arrocco corto e lungo: Re di due caselle e Torre dall\'altra parte', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 7, 0, { type: 'fuoco' }); place(g, 'w7', 7, 7, { type: 'fuoco' });
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 2);
+  assert.strictEqual(G.move(g, 'w', 'w4', 7, 6), null);
+  assert.deepStrictEqual([g.pieces.w4.r, g.pieces.w4.c, g.pieces.w7.r, g.pieces.w7.c], [7, 6, 7, 5]);
+  assert.strictEqual(g.turn, 'b');
+  const g2 = startedGame(); clear(g2);
+  place(g2, 'w0', 7, 0, { type: 'fuoco' }); place(g2, 'w7', 7, 7, { type: 'fuoco' });
+  assert.strictEqual(G.move(g2, 'w', 'w4', 7, 2), null);
+  assert.deepStrictEqual([g2.pieces.w4.c, g2.pieces.w0.c], [2, 3]);
+});
+t('niente arrocco con pezzi in mezzo, Re già mosso o Torre già mossa', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w0', 7, 0, { type: 'fuoco' }); place(g, 'w7', 7, 7, { type: 'fuoco' });
+  place(g, 'w1', 7, 1, { type: 'fuoco' });
+  assert.deepStrictEqual(castleOf(g, 'w', 'w4').map((m) => m.c), [6]); // lungo bloccato
+  g.pieces.w7.hasMoved = true;
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 0);
+  g.pieces.w7.hasMoved = false; g.pieces.w4.hasMoved = true;
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 0);
+});
+t('niente arrocco sotto scacco, attraverso una casella minacciata, o con Torre paralizzata', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w7', 7, 7, { type: 'fuoco' });
+  place(g, 'b0', 5, 5, { type: 'acqua' }); // torre nera: minaccia la colonna f
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 0);
+  g.pieces.b0.c = 3; // ora minaccia la colonna d, non quelle dell'arrocco corto
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 1);
+  g.pieces.b0.c = 4; // dà scacco al Re
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 0);
+  g.pieces.b0.c = 0; g.pieces.w7.frozen = true;
+  assert.strictEqual(castleOf(g, 'w', 'w4').length, 0);
+});
+
 console.log('Scacco, matto, stallo');
 t('scacco: la mossa che lo dà avvisa e l\'avversario può rispondere solo risolvendolo', () => {
   const g = startedGame(); clear(g);

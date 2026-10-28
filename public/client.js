@@ -120,7 +120,7 @@
       if (ui.item) itemTargets(h);
       else if (ui.sel) {
         h.sel = ui.sel;
-        for (const m of S.legal[ui.sel] || []) (m.kind === 'move' ? h.move : h.atk)[m.r + ',' + m.c] = m;
+        for (const m of S.legal[ui.sel] || []) (m.kind === 'attack' ? h.atk : h.move)[m.r + ',' + m.c] = m;
       }
     }
     return h;
@@ -468,7 +468,7 @@
     const st = Object.entries(Sh.ROLES).filter(([k]) => k !== 're').map(([k, v]) => `${v.label} ${v.hp} HP / ${v.atk} att.`).join(' · ');
     return `<h2>Come si gioca</h2>
       <ul>
-        <li><b>Muovi come negli scacchi.</b> Niente arrocco né presa al varco.</li>
+        <li><b>Muovi come negli scacchi.</b> Arrocco ammesso (Re e Torre mai mossi, casella libera e non minacciata); niente presa al varco.</li>
         <li><b>Catturare = attaccare.</b> Il bersaglio perde HP pari all'attacco, modificato dal tipo (×2, ×0,5). Se sopravvive, il tuo pezzo resta dov'è. Se muore, occupi la casella.</li>
         <li><b>Statistiche:</b> ${st}.</li>
         <li><b>Re:</b> incolore, senza HP, <b>elimina in un colpo qualsiasi pezzo</b> (lo Scudo lo ferma). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>

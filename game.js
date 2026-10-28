@@ -10,7 +10,7 @@ const inb = (r, c) => Number.isInteger(r) && Number.isInteger(c) && r >= 0 && r 
 
 function mkPiece(id, color, role, r, c) {
   const st = S.ROLES[role];
-  return { id, color, role, type: null, hp: st.hp, maxHp: st.hp, atk: st.atk, r, c, alive: true, shield: false, boost: false, frozen: false };
+  return { id, color, role, type: null, hp: st.hp, maxHp: st.hp, atk: st.atk, r, c, alive: true, shield: false, boost: false, frozen: false, hasMoved: false };
 }
 
 function newGame() {
@@ -142,7 +142,15 @@ function applyMoveCore(g, color, p, r, c) {
   const t = grid(g)[r][c];
   const from = [p.r, p.c];
   let moved = false;
-  if (!t) {
+  if (!t && p.role === 're' && r === p.r && Math.abs(c - p.c) === 2) {
+    // arrocco: la Torre salta dall'altra parte del Re
+    const rook = grid(g)[r][c > p.c ? 7 : 0];
+    rook.c = c > p.c ? c - 1 : c + 1;
+    rook.hasMoved = true;
+    p.r = r; p.c = c; moved = true;
+    log(g, `${S.TEAM[color]} fa l'arrocco.`);
+    event(g, r, c, 'Arrocco', 'buff');
+  } else if (!t) {
     p.r = r; p.c = c; moved = true;
     log(g, `${name(p)} si sposta.`);
   } else {
@@ -172,6 +180,7 @@ function applyMoveCore(g, color, p, r, c) {
       }
     }
   }
+  if (moved) p.hasMoved = true;
   g.lastMove = { from, to: [r, c] };
   return moved;
 }
@@ -193,6 +202,23 @@ function legalMoves(g, color) {
       if (inCheck(sim, color)) continue;
       if (target) Object.assign(m, preview(p, target));
       mv.push(m);
+    }
+    if (p.role === 're' && !p.hasMoved && !inCheck(g, color)) {
+      for (const side of [-1, 1]) {
+        const rook = gr[p.r][side < 0 ? 0 : 7];
+        if (!rook || rook.color !== color || rook.role !== 'torre' || rook.hasMoved || rook.frozen) continue;
+        let free = true;
+        for (let c = Math.min(p.c, rook.c) + 1; c < Math.max(p.c, rook.c); c++) if (gr[p.r][c]) free = false;
+        if (!free) continue;
+        // il Re non attraversa né finisce su una casella minacciata
+        const s1 = simClone(g);
+        applyMoveCore(s1, color, s1.pieces[p.id], p.r, p.c + side);
+        if (inCheck(s1, color)) continue;
+        const s2 = simClone(g);
+        applyMoveCore(s2, color, s2.pieces[p.id], p.r, p.c + 2 * side);
+        if (inCheck(s2, color)) continue;
+        mv.push({ r: p.r, c: p.c + 2 * side, kind: 'castle' });
+      }
     }
     if (mv.length) res[p.id] = mv;
   }
@@ -326,6 +352,7 @@ function applyItem(g, color, a) {
       if (!p1 || !p2 || p1 === p2) return 'Scegli due tuoi pezzi diversi';
       const bad = (p, r) => p.role === 'pedone' && (r === 0 || r === 7);
       if (bad(p1, p2.r) || bad(p2, p1.r)) return 'Un pedone non può finire su una riga di fondo';
+      p1.hasMoved = p2.hasMoved = true;
       [p1.r, p2.r] = [p2.r, p1.r];
       [p1.c, p2.c] = [p2.c, p1.c];
       log(g, `${team} usa Cambio: ${name(p1)} e ${name(p2)} si scambiano.`);
@@ -340,7 +367,7 @@ function applyItem(g, color, a) {
       const allowed = p.role === 'pedone' ? [color === 'w' ? 6 : 1] : rows;
       if (!allowed.includes(a.r)) return p.role === 'pedone' ? 'Un pedone torna sulla tua seconda fila' : 'Scegli una casella nelle tue prime due file';
       if (grid(g)[a.r][a.c]) return 'La casella è occupata';
-      p.alive = true; p.r = a.r; p.c = a.c;
+      p.alive = true; p.r = a.r; p.c = a.c; p.hasMoved = true;
       p.hp = Math.ceil(p.maxHp / 2);
       p.shield = false; p.boost = false; p.frozen = false;
       g.graveyard[color] = g.graveyard[color].filter((x) => x !== a.id);
@@ -432,8 +459,9 @@ function move(g, color, id, r, c) {
   if (!p) return 'Pezzo non valido';
   if (p.frozen) return 'Questo pezzo è paralizzato';
   if (g.shieldLock === p.id) return 'Ha appena ricevuto lo Scudo: muovi un altro pezzo';
-  if (!movesFor(p, grid(g)).find((m) => m.r === r && m.c === c)) return 'Mossa non valida';
   if (!(legalMoves(g, color)[id] || []).find((m) => m.r === r && m.c === c)) {
+    const basic = movesFor(p, grid(g)).find((m) => m.r === r && m.c === c);
+    if (!basic) return 'Mossa non valida';
     return inCheck(g, color) ? 'Sei sotto scacco: quella mossa non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
   }
   const moved = applyMoveCore(g, color, p, r, c);
