@@ -11,6 +11,8 @@ npm start          # http://localhost:3000
 
 Uno clicca **Crea stanza** e manda il link (o il codice di 5 lettere) all'amico. Se si ricarica la pagina si rientra da soli nella stessa stanza.
 
+Per giocare da solo c'è **Bot facile** / **Bot normale** nella schermata iniziale (il bot sceglie tipi e strumenti, muove, usa Scudo, Paralisi, Bomba, Pozione e Revitalizzante).
+
 Per giocare con amici lontani il server deve essere raggiungibile da internet: vedi "Mettere online" qui sotto.
 
 ## Regole in breve
@@ -30,10 +32,11 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Tipi, tabella forze/resistenze, HP e attacco, strumenti | `public/shared.js` |
 | Regole di gioco (movimento, danni, strumenti, promozione) | `game.js` |
 | Stanze e rete | `server.js` |
+| Avversario computer | `bot.js` |
 | Interfaccia | `public/index.html`, `style.css`, `client.js` |
 | Grafica dei pezzi | `public/sprites/` |
 
-Dopo aver toccato le regole: `npm test` (36 test sulla logica).
+Dopo aver toccato le regole: `npm test` (36 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
 
 ## Cambiare gli sprite
 

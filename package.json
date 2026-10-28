@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "sprites": "node tools/gen-sprites.js",
-    "test": "node test/test-game.js"
+    "test": "node test/test-game.js && node test/test-bot.js"
   },
   "engines": { "node": ">=18" },
   "dependencies": { "socket.io": "^4.7.5" },

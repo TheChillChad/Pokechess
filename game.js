@@ -510,7 +510,8 @@ function publicState(room, color) {
     you: color,
     phase: g.phase,
     turn: g.turn,
-    connected: { w: !!(room.players.w && room.players.w.sid), b: !!(room.players.b && room.players.b.sid) },
+    connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot)) },
+    bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,
@@ -534,4 +535,5 @@ function publicState(room, color) {
 module.exports = {
   newGame, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
+  simClone, applyMoveCore, applyItem, // usate dal bot per simulare
 };

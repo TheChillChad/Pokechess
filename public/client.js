@@ -79,6 +79,11 @@
       if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
     });
   });
+  const startBot = (level) => socket.emit('createBot', { token, level }, (res) => {
+    if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
+  });
+  $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
+  $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
   $('#joinForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const code = $('#codeInput').value.trim().toUpperCase();
@@ -133,8 +138,8 @@
     $('#topbar').innerHTML = `
       <h1>Scacchi Mostri</h1>
       <span class="pill team-${S.you}"><span class="tdot"></span>Sei ${teamName(S.you)}</span>
-      <span class="pill" title="Avversario"><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
-      <button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>
+      <span class="pill" title="Avversario"><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + (S.bot.level === 'easy' ? 'facile' : 'normale') : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
+      ${S.bot ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <button class="pill" id="btnTypes" type="button">Tabella tipi</button>
       <button class="pill" id="btnRules2" type="button">Regole</button>`;
   }
@@ -144,7 +149,7 @@
     if (S.phase === 'lobby') { main = 'In attesa dell\'avversario'; sub = 'Manda il link o il codice ' + S.code; dot = null; }
     else if (S.phase === 'draft') {
       const again = S.picks + 1 < Sh.DRAFT_PICKS && Sh.draftTurn(S.picks + 1) === S.turn;
-      main = S.turn === S.you ? 'Tocca a te: assegna un tipo' : `Sta scegliendo il ${teamName(S.turn)}`;
+      main = S.turn === S.you ? 'Tocca a te: assegna un tipo' : S.bot ? 'Il bot sta scegliendo…' : `Sta scegliendo il ${teamName(S.turn)}`;
       sub = `Draft dei tipi ${S.picks}/${Sh.DRAFT_PICKS}` + (again ? ' · sceglie due volte di fila' : '');
     } else if (S.phase === 'items') {
       main = 'Scegli i tuoi 3 strumenti'; sub = 'Poi si parte'; dot = null;
@@ -153,7 +158,7 @@
       if (S.pendingBy) main = S.pendingBy === S.you ? 'Scegli la promozione del pedone' : `Il ${teamName(S.pendingBy)} sta promuovendo`;
       else if (chk && S.turn === S.you) { main = 'Sei sotto scacco!'; sub = 'Proteggi il Re: spostalo, para o elimina chi lo minaccia'; }
       else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
-      else main = S.turn === S.you ? 'Tocca a te' : `Turno del ${teamName(S.turn)}`;
+      else main = S.turn === S.you ? 'Tocca a te' : S.bot ? 'Il bot sta pensando…' : `Turno del ${teamName(S.turn)}`;
       if (S.turn === S.you && S.shieldLock) sub = 'Scudo messo: ora muovi un altro pezzo (quello con lo Scudo no)';
       else if (S.turn === S.you && S.freeUsed) sub = 'Azione gratuita usata: ora muovi un pezzo';
       if (chk) alertBadge = true;
