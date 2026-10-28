@@ -203,6 +203,7 @@
           let label, k = '';
           if (a.king) label = a.shield ? 'Scudo' : 'RE!';
           else if (a.shield) { label = 'Scudo'; k = 'sh'; }
+          else if (a.ko) { label = 'KO'; k = 'kill'; }
           else { label = '−' + a.dmg; if (a.kill) k = 'kill'; else if (a.eff > 1) k = 'super'; else if (a.eff < 1) k = 'weak'; }
           inner += `<span class="dmg ${k}">${label}</span>`;
         }
@@ -358,7 +359,7 @@
     if (!p || !p.alive) return `<div class="box"><h3>Pezzo</h3><p class="mute">Clicca un pezzo per vederne le statistiche.</p></div>`;
     let body;
     if (p.role === 're') {
-      body = `<dl><dt>Squadra</dt><dd>${teamName(p.color)}</dd><dt>Tipo</dt><dd>Incolore</dd><dt>Danno</dt><dd>${p.atk} × 2 = ${p.atk * 2} sempre</dd><dt>HP</dt><dd>nessuno</dd></dl>
+      body = `<dl><dt>Squadra</dt><dd>${teamName(p.color)}</dd><dt>Tipo</dt><dd>Incolore</dd><dt>Attacco</dt><dd>elimina in un colpo</dd><dt>HP</dt><dd>nessuno</dd></dl>
         <p class="mute">Non si può colpire: si perde per scacco matto. Non puoi lasciarlo sotto scacco.</p>`;
     } else {
       const strong = p.type ? Sh.STRONG[p.type] : [];
@@ -465,7 +466,7 @@
         <li><b>Muovi come negli scacchi.</b> Niente arrocco né presa al varco.</li>
         <li><b>Catturare = attaccare.</b> Il bersaglio perde HP pari all'attacco, modificato dal tipo (×2, ×0,5). Se sopravvive, il tuo pezzo resta dov'è. Se muore, occupi la casella.</li>
         <li><b>Statistiche:</b> ${st}.</li>
-        <li><b>Re:</b> incolore, senza HP, fa sempre ×2 (6 danni). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
+        <li><b>Re:</b> incolore, senza HP, <b>elimina in un colpo qualsiasi pezzo</b> (lo Scudo lo ferma). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
         <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
         <li><b>Strumenti</b> (costano il turno, tranne Scudo e Paralisi: azioni gratuite, una sola per turno, dopo le quali muovi un pezzo):${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>

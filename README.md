@@ -18,7 +18,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 - Si muove come negli scacchi (senza arrocco né presa al varco: al loro posto ci sono gli strumenti).
 - **Catturare = attaccare**: il bersaglio perde HP pari all'attacco del pezzo, moltiplicato per il tipo (×2 / ×0,5). Se sopravvive, l'attaccante resta fermo. Se muore, l'attaccante occupa la casella.
 - HP / attacco: Pedone 4/2, Cavallo 7/4, Alfiere 7/4, Torre 10/5, Regina 12/7.
-- **Re**: incolore, senza HP, fa sempre ×2 (6 danni). Non si può colpire: valgono scacco e scacco matto come negli scacchi. Se il Re è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Sotto scacco uno strumento che costa il turno si può usare solo se toglie il Re dallo scacco (Cambio, Revitalizzante, Bomba su chi lo minaccia); Scudo e Paralisi sono gratuiti ma poi devi comunque muovere. Senza mosse e senza scacco è patta (stallo).
+- **Re**: incolore, senza HP, elimina in un colpo qualsiasi pezzo (lo Scudo lo ferma). Non si può colpire: valgono scacco e scacco matto come negli scacchi. Se il Re è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Sotto scacco uno strumento che costa il turno si può usare solo se toglie il Re dallo scacco (Cambio, Revitalizzante, Bomba su chi lo minaccia); Scudo e Paralisi sono gratuiti ma poi devi comunque muovere. Senza mosse e senza scacco è patta (stallo).
 - **Draft dei tipi**: i 30 pezzi (15 a testa, senza Re) ricevono un tipo a serpentina: Blu, Rosso, Rosso, Blu, Blu, Rosso… L'ultima scelta è del Rosso, che muove per secondo. Ogni tipo si usa al massimo 2 volte a testa.
 - **Strumenti** (3 a testa, anche doppioni, ognuno si usa una volta): Pozione (+5 HP), Revitalizzante (riporta in campo un pezzo sconfitto), **Scudo** (azione gratuita: un pezzo ignora il prossimo attacco, poi muovi un altro pezzo; quello protetto non muove in quel turno), Cristallo (prossimo attacco ×1,5), Cambio (scambia due tuoi pezzi), **Paralisi** (azione gratuita: un pezzo avversario non può muovere né attaccare al suo prossimo turno e non dà scacco; poi muovi un pezzo), **Metamorfosi** (cambia il tipo di un tuo pezzo), **Bomba** (3 danni fissi a un pezzo avversario), Pietra Evolutiva (passiva: alla promozione scegli il pezzo; senza Pietra il pedone diventa Cavallo). Tutti costano il turno tranne Scudo e Paralisi (azioni gratuite, una sola per turno).
 - Dopo la partita c'è la rivincita, con i colori scambiati.
@@ -33,7 +33,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Interfaccia | `public/index.html`, `style.css`, `client.js` |
 | Grafica dei pezzi | `public/sprites/` |
 
-Dopo aver toccato le regole: `npm test` (34 test sulla logica).
+Dopo aver toccato le regole: `npm test` (36 test sulla logica).
 
 ## Cambiare gli sprite
 

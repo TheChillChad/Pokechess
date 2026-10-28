@@ -88,13 +88,34 @@ t('danno super efficace uccide e l\'attaccante avanza', () => {
   assert.deepStrictEqual([g.pieces.w8.r, g.pieces.w8.c], [3, 5]);
   assert.deepStrictEqual(g.graveyard.b, ['b9']);
 });
-t('il Re fa sempre 6 (3×2) ignorando i tipi', () => {
+t('il Re elimina in un colpo qualsiasi pezzo, ignorando i tipi', () => {
   const g = startedGame(); clear(g);
   place(g, 'w4', 4, 4);
-  place(g, 'b8', 4, 5, { type: 'fuoco' });   // pedone nero, non minaccia il Re
+  place(g, 'b8', 4, 5, { type: 'fuoco' });
   const m = G.legalMoves(g, 'w')['w4'].find((x) => x.r === 4 && x.c === 5);
-  assert.strictEqual(m.dmg, 6);
-  assert.strictEqual(m.eff, 1);
+  assert.strictEqual(m.ko, true);
+  assert.strictEqual(m.kill, true);
+  assert.strictEqual(G.move(g, 'w', 'w4', 4, 5), null);
+  assert.strictEqual(g.pieces.b8.alive, false);
+  assert.deepStrictEqual([g.pieces.w4.r, g.pieces.w4.c], [4, 5]);
+});
+t('il Re uccide anche una Regina a piena vita', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w4', 4, 4);
+  place(g, 'b3', 4, 5, { type: 'acqua' });
+  assert.strictEqual(G.move(g, 'w', 'w4', 4, 5), null);
+  assert.strictEqual(g.pieces.b3.alive, false);
+});
+t('lo Scudo ferma il Re', () => {
+  const g = startedGame(); clear(g);
+  place(g, 'w4', 4, 4);
+  place(g, 'b8', 4, 5, { type: 'fuoco' });
+  g.pieces.b8.shield = true;
+  const m = G.legalMoves(g, 'w')['w4'].find((x) => x.r === 4 && x.c === 5);
+  assert.ok(m.shield);
+  assert.strictEqual(G.move(g, 'w', 'w4', 4, 5), null);
+  assert.strictEqual(g.pieces.b8.alive, true);
+  assert.deepStrictEqual([g.pieces.w4.r, g.pieces.w4.c], [4, 4]);
 });
 t('il Re non si può mai colpire: nessun attacco sul Re tra le mosse legali', () => {
   const g = startedGame(); clear(g);

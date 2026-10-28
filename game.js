@@ -123,18 +123,18 @@ function inCheck(g, color) {
 
 // ---------- danno ----------
 function calcDamage(att, def) {
-  let eff = 1;
-  let base;
-  if (att.role === 're') base = att.atk * 2; // il Re ignora i tipi
-  else { eff = S.mult(att.type, def.type); base = att.atk * eff; }
+  // il Re elimina in un colpo qualsiasi pezzo, ignorando i tipi (lo Scudo lo ferma comunque)
+  if (att.role === 're') return { dmg: def.hp, eff: 1, ko: true };
+  const eff = S.mult(att.type, def.type);
+  let base = att.atk * eff;
   if (att.boost) base *= 1.5;
-  return { dmg: Math.max(1, Math.round(base)), eff };
+  return { dmg: Math.max(1, Math.round(base)), eff, ko: false };
 }
 
 function preview(att, def) {
   if (def.shield) return { shield: true, dmg: 0 };
-  const { dmg, eff } = calcDamage(att, def);
-  return { dmg, eff, kill: dmg >= def.hp };
+  const { dmg, eff, ko } = calcDamage(att, def);
+  return { dmg, eff, kill: dmg >= def.hp, ko };
 }
 
 // Applica una mossa o un attacco (senza cambiare turno). Usata anche per le simulazioni.
@@ -156,10 +156,10 @@ function applyMoveCore(g, color, p, r, c) {
       p.boost = false; t.alive = false; p.r = r; p.c = c; moved = true;
       g.phase = 'over'; g.winner = color; g.reason = `${S.TEAM[color]} ha colpito il Re avversario`;
     } else {
-      const { dmg, eff } = calcDamage(p, t);
+      const { dmg, eff, ko } = calcDamage(p, t);
       p.boost = false;
       t.hp = Math.max(0, t.hp - dmg);
-      const txt = eff > 1 ? ' super efficace!' : eff < 1 ? ' poco efficace…' : '';
+      const txt = ko ? ' il Re non perdona!' : eff > 1 ? ' super efficace!' : eff < 1 ? ' poco efficace…' : '';
       if (t.hp === 0) {
         t.alive = false;
         g.graveyard[t.color].push(t.id);
