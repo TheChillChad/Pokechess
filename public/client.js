@@ -71,8 +71,38 @@
     if (ui.sel && !st.legal[ui.sel]) ui.sel = null;
     if (ui.item && !myTurn()) ui.item = null;
     if (ui.draftPiece) { const p = byId(ui.draftPiece); if (!p || p.type || st.turn !== st.you) ui.draftPiece = null; }
+    playSounds(prev, st);
     render();
   });
+
+  // suoni: confronta lo stato nuovo con il precedente (niente suoni al primo caricamento)
+  function playSounds(prev, st) {
+    if (!prev || !window.Sfx || prev.code !== st.code) return;
+    const mine = st.you;
+    if (prev.phase !== 'over' && st.phase === 'over') {
+      Sfx.play(st.winner === null ? 'draw' : st.winner === mine ? 'win' : 'lose');
+      return;
+    }
+    if (prev.phase === 'items' && st.phase === 'play') { Sfx.play('start'); return; }
+    if (st.phase === 'draft' && st.picks > prev.picks) { Sfx.play('pick'); return; }
+    const ev = st.event;
+    const newEv = ev && (!prev.event || ev.seq !== prev.event.seq);
+    const moved = JSON.stringify(st.lastMove) !== JSON.stringify(prev.lastMove);
+    let played = false;
+    if (newEv) {
+      const k = ev.kind;
+      if (ev.text === 'Arrocco') Sfx.play('castle');
+      else if (k === 'check') { if (moved) Sfx.play('move'); Sfx.play('check', moved ? 0.1 : 0); }
+      else if (k === 'kill' && ev.text === 'Matto!') Sfx.play('check');
+      else if (k === 'kill' || k === 'super' || k === 'weak' || k === 'hit' || k === 'block') Sfx.play(ev.bomb ? 'bomb' : k);
+      else if (k === 'heal' || k === 'buff') Sfx.play(k);
+      played = true;
+    }
+    if (!played && moved) Sfx.play('move');
+    if (prev.pending !== st.pending && !st.pending && prev.pendingBy) Sfx.play('promote');
+    // tocca a te (solo se l'avversario ha appena giocato)
+    if (st.phase === 'play' && st.turn === mine && prev.turn !== mine) Sfx.play('turn', 0.35);
+  }
 
   $('#btnCreate').addEventListener('click', () => {
     socket.emit('create', { token }, (res) => {
@@ -140,6 +170,7 @@
       <span class="pill team-${S.you}"><span class="tdot"></span>Sei ${teamName(S.you)}</span>
       <span class="pill" title="Avversario"><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + (S.bot.level === 'easy' ? 'facile' : 'normale') : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
       ${S.bot ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
+      <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tabella tipi</button>
       <button class="pill" id="btnRules2" type="button">Regole</button>`;
   }
@@ -482,9 +513,10 @@
   function openDialog(id, html) { const d = $(id); d.innerHTML = html; if (!d.open) d.showModal(); }
   $('#btnRules').addEventListener('click', () => openDialog('#dlgRules', rulesText()));
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('#btnCopy, #btnTypes, #btnRules2');
+    const b = e.target.closest('#btnCopy, #btnTypes, #btnRules2, #btnSound');
     if (!b) return;
-    if (b.id === 'btnCopy') copyLink();
+    if (b.id === 'btnSound') { Sfx.setMuted(!Sfx.isMuted()); b.textContent = Sfx.isMuted() ? '🔇' : '🔊'; }
+    else if (b.id === 'btnCopy') copyLink();
     else if (b.id === 'btnTypes') openDialog('#dlgTypes', typesTable());
     else openDialog('#dlgRules', rulesText());
   });

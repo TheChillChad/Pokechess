@@ -330,10 +330,10 @@ function applyItem(g, color, a) {
           t.alive = false;
           g.graveyard[t.color].push(t.id);
           log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP, sconfitto!`);
-          event(g, t.r, t.c, '−3', 'kill');
+          event(g, t.r, t.c, '−3', 'kill'); g.event.bomb = true;
         } else {
           log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP (restano ${t.hp}).`);
-          event(g, t.r, t.c, '−3', 'hit');
+          event(g, t.r, t.c, '−3', 'hit'); g.event.bomb = true;
         }
       }
       return null;

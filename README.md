@@ -35,6 +35,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Avversario computer | `bot.js` |
 | Interfaccia | `public/index.html`, `style.css`, `client.js` |
 | Grafica dei pezzi | `public/sprites/` |
+| Effetti sonori (sintetizzati, nessun file audio) | `public/sound.js` |
 
 Dopo aver toccato le regole: `npm test` (39 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
 
