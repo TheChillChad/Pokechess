@@ -14,11 +14,14 @@
   <h1><img src="logo.svg" alt="EleMate" class="logo"></h1>
   <p class="lead">Scacchi con HP, tipi e strumenti. Si gioca in due, online.</p>
   <button id="btnCreate" class="btn primary" type="button">Crea stanza</button>
-  <div class="or">oppure gioca da solo</div>
-  <div class="joinrow">
-    <button id="btnBotEasy" class="btn" type="button" style="flex:1">Bot facile</button>
-    <button id="btnBotNormal" class="btn" type="button" style="flex:1">Bot normale</button>
+  <div class="or">oppure gioca contro il bot</div>
+  <div class="botgrid">
+    <button id="btnBotEasy" class="btn" type="button">Facile</button>
+    <button id="btnBotNormal" class="btn" type="button">Normale</button>
+    <button id="btnBotHard" class="btn" type="button">Difficile</button>
+    <button id="btnBotMaster" class="btn" type="button">Maestro</button>
   </div>
+  <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
   <div class="or">oppure entra in una stanza</div>
   <form id="joinForm" class="joinrow">
     <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">

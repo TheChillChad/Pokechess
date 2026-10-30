@@ -42,6 +42,12 @@ const validCode = (c) => typeof c === 'string' && /^[A-Z0-9]{5}$/.test(c);
 
 function broadcast(room) {
   room.touched = Date.now();
+  if (room.local) {
+    // un solo dispositivo: la vista segue chi deve giocare
+    const pl = room.players.w;
+    if (pl && pl.sid) io.to(pl.sid).emit('state', G.publicState(room, G.actingColor(room.game)));
+    return;
+  }
   for (const color of ['w', 'b']) {
     const pl = room.players[color];
     if (pl && pl.sid) io.to(pl.sid).emit('state', G.publicState(room, color));
@@ -88,7 +94,7 @@ io.on('connection', (socket) => {
   socket.on('createBot', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const level = data.level === 'easy' ? 'easy' : 'normal';
+    const level = ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
     const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
     const mine = Math.random() < 0.5 ? 'w' : 'b';
@@ -97,7 +103,21 @@ io.on('connection', (socket) => {
     room.players[bc] = { token: '__bot__', sid: null, bot: true };
     room.bot = { color: bc, level };
     room.game.phase = 'draft';
-    room.game.log.push(`Partita contro il computer (${level === 'easy' ? 'facile' : 'normale'}). Draft dei tipi: il Blu comincia.`);
+    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level]}). Draft dei tipi: il Blu comincia.`);
+    cb({ ok: true, code: room.code });
+    broadcast(room);
+  });
+
+  // partita in due sullo stesso dispositivo: la vista passa da un giocatore all'altro
+  socket.on('createLocal', (data, cb) => {
+    cb = typeof cb === 'function' ? cb : () => {};
+    if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
+    const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now(), local: true };
+    rooms.set(room.code, room);
+    seat(room, socket, 'w', data.token);
+    room.players.b = { token: data.token, sid: null, local: true };
+    room.game.phase = 'draft';
+    room.game.log.push('Partita in locale: passatevi il dispositivo. Draft dei tipi: il Blu comincia.');
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -128,7 +148,8 @@ io.on('connection', (socket) => {
   // esegue un'azione di gioco sulla stanza del socket
   function act(fn) {
     const room = rooms.get(socket.data.code);
-    const color = socket.data.color;
+    let color = socket.data.color;
+    if (room && room.local && color) color = G.actingColor(room.game);
     if (!room || !color) return socket.emit('errore', 'Non sei in una stanza');
     let err;
     try { err = fn(room.game, color, room); } catch (e) { console.error(e); err = 'Errore interno'; }
@@ -147,6 +168,7 @@ io.on('connection', (socket) => {
     room.game = G.newGame();
     room.game.phase = 'draft';
     // scambia i colori: chi era Rosso ora muove per primo
+    if (!room.local) {
     const { w, b } = room.players;
     room.players.w = b; room.players.b = w;
     if (room.bot) room.bot.color = G.other(room.bot.color);
@@ -155,7 +177,8 @@ io.on('connection', (socket) => {
       const s = pl && pl.sid ? io.sockets.sockets.get(pl.sid) : null;
       if (s) s.data.color = col;
     }
-    room.game.log.push('Nuova partita! Colori scambiati. Draft dei tipi: comincia il Blu.');
+    }
+    room.game.log.push(room.local ? 'Nuova partita! Draft dei tipi: comincia il Blu.' : 'Nuova partita! Colori scambiati. Draft dei tipi: comincia il Blu.');
     return null;
   }));
 

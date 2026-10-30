@@ -11,7 +11,7 @@ npm start          # http://localhost:3000
 
 Uno clicca **Crea stanza** e manda il link (o il codice di 5 lettere) all'amico. Se si ricarica la pagina si rientra da soli nella stessa stanza.
 
-Per giocare da solo c'è **Bot facile** / **Bot normale** nella schermata iniziale (il bot sceglie tipi e strumenti, muove, usa Scudo, Paralisi, Bomba, Pozione e Revitalizzante).
+Per giocare da soli ci sono 4 livelli di bot (**Facile**, **Normale**, **Difficile**, **Maestro**: i due più alti guardano più mosse avanti, con un limite di tempo per mossa) e la modalità **Due giocatori sullo stesso dispositivo** (la vista passa da Blu a Rosso a ogni turno).
 
 Per giocare con amici lontani il server deve essere raggiungibile da internet: vedi "Mettere online" qui sotto.
 

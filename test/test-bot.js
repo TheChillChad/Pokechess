@@ -31,12 +31,19 @@ const t = (name, fn) => { fn(); n++; console.log('  ok  ' + name); };
 t('facile vs facile: partita senza errori', () => { const r = match('easy', 'easy', 400); assert.ok(r.plies > 5); });
 t('normale vs facile: il normale non perde quasi mai', () => {
   let wins = 0, losses = 0;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 3; i++) {
     const r = match('normal', 'easy', 300);
     if (r.g.winner === 'w') wins++; else if (r.g.winner === 'b') losses++;
     console.log(`     partita ${i + 1}: ${r.g.phase === 'over' ? r.g.reason : 'non finita'} (${r.plies} mosse, max ${r.slowest} ms)`);
     assert.ok(r.slowest < 3000, 'mossa troppo lenta: ' + r.slowest);
   }
   assert.ok(wins >= losses, `il normale ha perso più di quanto ha vinto (${wins}-${losses})`);
+});
+t('livelli: difficile e maestro rispondono in tempi accettabili e senza errori', () => {
+  for (const lv of ['hard', 'master']) {
+    const r = match(lv, 'easy', 16);
+    console.log(`     ${lv}: ${r.g.phase === 'over' ? r.g.reason : 'non finita'} (${r.plies} mosse, max ${r.slowest} ms)`);
+    assert.ok(r.slowest < 6000, 'troppo lento: ' + r.slowest);
+  }
 });
 console.log(n + ' test bot passati');

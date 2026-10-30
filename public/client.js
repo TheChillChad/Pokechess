@@ -114,6 +114,11 @@
   });
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
   $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
+  $('#btnBotHard').addEventListener('click', () => startBot('hard'));
+  $('#btnBotMaster').addEventListener('click', () => startBot('master'));
+  $('#btnLocal').addEventListener('click', () => socket.emit('createLocal', { token }, (res) => {
+    if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
+  }));
   $('#joinForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const code = $('#codeInput').value.trim().toUpperCase();
@@ -167,9 +172,9 @@
     const o = opp();
     $('#topbar').innerHTML = `
       <h1>EleMate</h1>
-      <span class="pill team-${S.you}"><span class="tdot"></span>Sei ${teamName(S.you)}</span>
-      <span class="pill" title="Avversario"><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + (S.bot.level === 'easy' ? 'facile' : 'normale') : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
-      ${S.bot ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
+      <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}</span>
+      ${S.local ? '<span class="pill">Locale · stesso dispositivo</span>' : ''}<span class="pill" title="Avversario" ${S.local ? 'hidden' : ''}><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
+      ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tabella tipi</button>
       <button class="pill" id="btnRules2" type="button">Regole</button>`;
@@ -180,16 +185,16 @@
     if (S.phase === 'lobby') { main = 'In attesa dell\'avversario'; sub = 'Manda il link o il codice ' + S.code; dot = null; }
     else if (S.phase === 'draft') {
       const again = S.picks + 1 < Sh.DRAFT_PICKS && Sh.draftTurn(S.picks + 1) === S.turn;
-      main = S.turn === S.you ? 'Tocca a te: assegna un tipo' : S.bot ? 'Il bot sta scegliendo…' : `Sta scegliendo il ${teamName(S.turn)}`;
+      main = S.local ? `Tocca al ${teamName(S.you)}: assegna un tipo` : S.turn === S.you ? 'Tocca a te: assegna un tipo' : S.bot ? 'Il bot sta scegliendo…' : `Sta scegliendo il ${teamName(S.turn)}`;
       sub = `Draft dei tipi ${S.picks}/${Sh.DRAFT_PICKS}` + (again ? ' · sceglie due volte di fila' : '');
     } else if (S.phase === 'items') {
-      main = 'Scegli i tuoi 3 strumenti'; sub = 'Poi si parte'; dot = null;
+      main = S.local ? `Tocca al ${teamName(S.you)}: scegli 3 strumenti` : 'Scegli i tuoi 3 strumenti'; sub = S.local ? 'Passate il dispositivo: l\'altro non deve guardare' : 'Poi si parte'; dot = null;
     } else if (S.phase === 'play') {
       const chk = !!(S.check && S.check[S.turn]);
       if (S.pendingBy) main = S.pendingBy === S.you ? 'Scegli la promozione del pedone' : `Il ${teamName(S.pendingBy)} sta promuovendo`;
       else if (chk && S.turn === S.you) { main = 'Sei sotto scacco!'; sub = 'Proteggi il Re: spostalo, para o elimina chi lo minaccia'; }
       else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
-      else main = S.turn === S.you ? 'Tocca a te' : S.bot ? 'Il bot sta pensando…' : `Turno del ${teamName(S.turn)}`;
+      else main = S.local ? `Tocca al ${teamName(S.you)}` : S.turn === S.you ? 'Tocca a te' : S.bot ? 'Il bot sta pensando…' : `Turno del ${teamName(S.turn)}`;
       if (S.turn === S.you && S.shieldLock) sub = 'Scudo messo: ora muovi un altro pezzo (quello con lo Scudo no)';
       else if (S.turn === S.you && S.freeUsed) sub = 'Azione gratuita usata: ora muovi un pezzo';
       if (chk) alertBadge = true;

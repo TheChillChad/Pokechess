@@ -527,6 +527,13 @@ function resign(g, color) {
 }
 
 // ---------- stato inviato ai giocatori ----------
+// chi deve agire adesso (per la partita in locale, dove i due giocatori usano lo stesso dispositivo)
+function actingColor(g) {
+  if (g.phase === 'items') return g.itemsReady.w ? 'b' : 'w';
+  if (g.phase === 'over') return g.winner || 'w';
+  return g.turn;
+}
+
 function publicState(room, color) {
   const g = room.game;
   const opp = other(color);
@@ -538,8 +545,9 @@ function publicState(room, color) {
     you: color,
     phase: g.phase,
     turn: g.turn,
-    connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot)) },
+    connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot || room.players.w.local)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot || room.players.b.local)) },
     bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
+    local: !!room.local,
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,
@@ -563,5 +571,5 @@ function publicState(room, color) {
 module.exports = {
   newGame, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
-  simClone, applyMoveCore, applyItem, // usate dal bot per simulare
+  actingColor, simClone, applyMoveCore, applyItem, // usate dal bot per simulare
 };

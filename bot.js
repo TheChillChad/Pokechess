@@ -36,22 +36,59 @@ function endSim(sim, color) {
   sim.turn = G.other(color);
 }
 
-// punteggio dopo la migliore risposta dell'avversario (cerca anche il matto)
-function replyScore(sim, me) {
-  const opp = G.other(me);
-  const lm = G.legalMoves(sim, opp);
+// Ricerca a profondità limitata (minimax con potatura alfa-beta) dal punto di vista di `me`.
+// `toMove` è chi muove nel nodo; a profondità 0 si valuta la posizione. Scade con il tempo (deadline).
+let DEADLINE = Infinity;
+const TIMEOUT = new Error('timeout');
+function search(sim, me, toMove, depth, alpha, beta) {
+  if (Date.now() > DEADLINE) throw TIMEOUT;
+  if (sim.phase === 'over') return ev(sim, me);
+  const lm = G.legalMoves(sim, toMove);
   const ids = Object.keys(lm);
-  if (!ids.length) return G.inCheck(sim, opp) ? 1000 : 0;
-  let worst = Infinity;
-  for (const id of ids) for (const m of lm[id]) {
+  if (!ids.length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 : 1000) : 0; // matto o stallo
+  const maximizing = toMove === me;
+  const moves = [];
+  for (const id of ids) for (const m of lm[id]) moves.push({ id, m });
+  moves.sort((x, y) => (y.m.kind === 'attack') - (x.m.kind === 'attack')); // prima le catture: più potature
+  let best = maximizing ? -Infinity : Infinity;
+  for (const { id, m } of moves) {
     const s2 = G.simClone(sim);
-    play(s2, opp, id, m.r, m.c);
-    let v = ev(s2, me);
-    if (v > worst) continue;
-    if (G.inCheck(s2, me) && Object.keys(G.legalMoves(s2, me)).length === 0) v = -1000;
-    if (v < worst) worst = v;
+    play(s2, toMove, id, m.r, m.c);
+    endSim(s2, toMove);
+    let v;
+    if (depth <= 1) {
+      v = ev(s2, me);
+      // dopo una mossa che dà scacco controlliamo subito se è matto
+      if (G.inCheck(s2, G.other(toMove)) && Object.keys(G.legalMoves(s2, G.other(toMove))).length === 0) v = maximizing ? 1000 : -1000;
+    } else v = search(s2, me, G.other(toMove), depth - 1, alpha, beta);
+    if (maximizing) { if (v > best) best = v; if (best > alpha) alpha = best; }
+    else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (beta <= alpha) break;
   }
-  return worst;
+  return best;
+}
+
+// livelli: profondità massima (mezze mosse dopo la nostra) e tempo a disposizione
+const LEVELS = {
+  easy: { depth: 0, ms: 0 },
+  normal: { depth: 1, ms: 0 },
+  hard: { depth: 2, ms: 1500 },
+  master: { depth: 3, ms: 3500 },
+};
+
+// Dà un punteggio a tutte le mosse candidate. Approfondimento iterativo: si completa un livello per TUTTE
+// le candidate prima di passare al successivo, e se il tempo scade vale l'ultimo livello completato.
+function scoreAll(entries, me, level) {
+  const L = LEVELS[level] || LEVELS.normal;
+  const opp = G.other(me);
+  DEADLINE = Infinity;
+  const run = (d) => entries.map((e) => search(e.sim, me, opp, d, -Infinity, Infinity));
+  let scores = run(1); // il primo livello si completa sempre
+  const t0 = Date.now(); DEADLINE = t0 + L.ms;
+  for (let d = 2; d <= L.depth; d++) {
+    try { scores = run(d); } catch (e) { if (e !== TIMEOUT) throw e; break; }
+  }
+  entries.forEach((e, i) => { e.c.score = scores[i] - e.cost + Math.random() * 0.05; });
 }
 
 // ---------- draft ----------
@@ -82,14 +119,16 @@ function kit(g, color, level) {
 // ---------- partita ----------
 function cands(g, color, level) {
   const opp = G.other(color);
-  const out = [];
+  const out = [], entries = [];
   const lm = G.legalMoves(g, color);
   for (const id of Object.keys(lm)) for (const m of lm[id]) {
     const sim = G.simClone(g);
     play(sim, color, id, m.r, m.c);
     endSim(sim, color);
-    const score = level === 'easy' ? ev(sim, color) + Math.random() * 2.5 : replyScore(sim, color) + Math.random() * 0.05;
-    out.push({ kind: 'move', id, r: m.r, c: m.c, score });
+    const c = { kind: 'move', id, r: m.r, c: m.c, score: 0 };
+    out.push(c);
+    if (level === 'easy') c.score = ev(sim, color) + Math.random() * 2.5;
+    else entries.push({ c, sim, cost: 0 });
   }
   if (level === 'easy') return out;
 
@@ -112,7 +151,8 @@ function cands(g, color, level) {
       play(sim, color, bestMv.id, bestMv.m.r, bestMv.m.c);
     } else if (G.inCheck(sim, color)) return;
     endSim(sim, color);
-    out.push({ kind: 'item', a, score: replyScore(sim, color) - cost });
+    const c = { kind: 'item', a, score: 0 };
+    out.push(c); entries.push({ c, sim, cost });
   };
   if (kitNow.includes('bomba')) for (const t of enemies) pushItem({ item: 'bomba', id: t.id }, 0.8, false);
   if (kitNow.includes('pozione')) for (const p of mine) if (p.maxHp - p.hp >= 3) pushItem({ item: 'pozione', id: p.id }, 0.8, false);
@@ -137,6 +177,7 @@ function cands(g, color, level) {
       for (const p of t) pushItem({ item: 'paralisi', id: p.id }, 0.6, true);
     }
   }
+  scoreAll(entries, color, level);
   return out;
 }
 
