@@ -1,5 +1,5 @@
 # Genera public/logo.svg: il Re al centro, gli 8 simboli dei tipi attorno (stessi colori e simboli del gioco)
-# e la scritta "Elemental Mate" convertita in tracciati (non servono font). Uso: python3 tools/gen-logo.py
+# e la scritta "EleMate" convertita in tracciati (non servono font). Uso: python3 tools/gen-logo.py
 import math, re, os
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
@@ -46,14 +46,14 @@ king = re.sub(r'^<svg[^>]*>|</svg>\s*$', '', king.strip()).replace('fill="#fff"'
 ks = 7.0
 parts.append(f'<g transform="translate({cx - 22.5 * ks:.1f},{cy - 22.5 * ks + 8:.1f}) scale({ks})">{king}</g>')
 # scritta
-size = 82
-w1 = width('Elemental ', size); w2 = width('Mate', size)
+size = 130
+w1 = width('Ele', size); w2 = width('Mate', size)
 x0 = (W - (w1 + w2)) / 2
-p1, _ = text_path('Elemental ', size, x0, 735, '#1F2236')
+p1, _ = text_path('Ele', size, x0, 735, '#1F2236')
 p2, _ = text_path('Mate', size, x0 + w1, 735, '#2E7D5B')
 parts.append(p1 + p2)
 
-svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"><title>Elemental Mate</title>' + ''.join(parts) + '</svg>'
+svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}"><title>EleMate</title>' + ''.join(parts) + '</svg>'
 open(os.path.join(root, 'public/logo.svg'), 'w').write(svg)
 print('logo.svg', len(svg), 'byte; scritta larga', round(w1 + w2))
 

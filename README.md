@@ -1,4 +1,4 @@
-# Elemental Mate
+# EleMate
 
 Scacchi con HP, tipi e strumenti, da giocare online in due (stanza con codice o link).
 

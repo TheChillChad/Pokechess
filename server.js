@@ -174,4 +174,4 @@ setInterval(() => {
   for (const [code, room] of rooms) if (room.touched < limit) rooms.delete(code);
 }, 10 * 60 * 1000).unref();
 
-httpServer.listen(PORT, () => console.log(`Elemental Mate in ascolto su http://localhost:${PORT}`));
+httpServer.listen(PORT, () => console.log(`EleMate in ascolto su http://localhost:${PORT}`));
