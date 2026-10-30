@@ -39,6 +39,10 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 
 Dopo aver toccato le regole: `npm test` (39 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
 
+## Logo
+
+`public/logo.svg` e `public/favicon.svg` si rigenerano con `python3 tools/gen-logo.py` (serve `fonttools`). Il Re al centro è dei pezzi Cburnett (CC BY-SA 3.0), come gli sprite classici.
+
 ## Cambiare gli sprite
 
 Set attuale (`classico`): i pezzi di scacchi tradizionali (Cburnett, CC BY-SA 3.0) ricolorati col colore del tipo, con il simbolo del tipo in basso a destra; si rigenera con `node tools/gen-classic.js`. Il set originale con le creature è ancora in `public/sprites/mostri/` (provalo con `?sprites=mostri`).
