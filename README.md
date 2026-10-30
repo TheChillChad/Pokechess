@@ -1,4 +1,4 @@
-# Scacchi Mostri
+# Elemental Mate
 
 Scacchi con HP, tipi e strumenti, da giocare online in due (stanza con codice o link).
 

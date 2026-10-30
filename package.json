@@ -1,5 +1,5 @@
 {
-  "name": "scacchi-mostri",
+  "name": "elemental-mate",
   "version": "0.1.0",
   "description": "Scacchi con HP, tipi e strumenti, da giocare online in due",
   "main": "server.js",

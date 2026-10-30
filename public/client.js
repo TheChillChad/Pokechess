@@ -166,7 +166,7 @@
   function renderTop() {
     const o = opp();
     $('#topbar').innerHTML = `
-      <h1>Scacchi Mostri</h1>
+      <h1>Elemental Mate</h1>
       <span class="pill team-${S.you}"><span class="tdot"></span>Sei ${teamName(S.you)}</span>
       <span class="pill" title="Avversario"><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + (S.bot.level === 'easy' ? 'facile' : 'normale') : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
       ${S.bot ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
