@@ -1,0 +1,66 @@
+/* Pagina iniziale EleMate: fondo scuro animato, logo "vivo", pulsanti nei colori degli elementi */
+@font-face{font-family:"Aoboshi One";src:url(fonts/aoboshi-one.woff2) format("woff2");font-weight:400;font-display:swap}
+:root{--gold:#F2B632;--cream:#F4F1EA;--night:#192833;
+  --c-fuoco:#F08A4B;--c-acqua:#4FA3E8;--c-erba:#6DBF5B;--c-elettro:#F3D03E;--c-ghiaccio:#9ADCF2;--c-psico:#C97FE3;--c-buio:#8E94BF;--c-folletto:#F5A9CB}
+
+#home{position:fixed;inset:0;overflow-y:auto;overflow-x:hidden;background:var(--night);color:var(--cream);z-index:5;-webkit-overflow-scrolling:touch}
+#home .h-homewrap{position:relative;z-index:1;min-height:100%;max-width:460px;margin:0 auto;padding:28px 18px 32px;display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center}
+
+/* ---- sfondo animato ---- */
+#home .h-bg{position:fixed;inset:0;overflow:hidden;pointer-events:none}
+.h-blob{position:absolute;width:90vmax;height:90vmax;border-radius:50%;opacity:.30;will-change:transform}
+.h-b1{left:-35vmax;top:-30vmax;background:radial-gradient(circle,var(--c-acqua) 0,transparent 62%);animation:drift1 26s ease-in-out infinite alternate}
+.h-b2{right:-40vmax;top:5vmax;background:radial-gradient(circle,var(--c-psico) 0,transparent 62%);animation:drift2 32s ease-in-out infinite alternate}
+.h-b3{left:-30vmax;bottom:-45vmax;background:radial-gradient(circle,var(--c-erba) 0,transparent 62%);animation:drift2 30s ease-in-out infinite alternate-reverse;opacity:.22}
+.h-b4{right:-35vmax;bottom:-40vmax;background:radial-gradient(circle,var(--c-fuoco) 0,transparent 62%);animation:drift1 36s ease-in-out infinite alternate-reverse;opacity:.24}
+@keyframes drift1{to{transform:translate(18vmax,12vmax) scale(1.15)}}
+@keyframes drift2{to{transform:translate(-16vmax,-10vmax) scale(.9)}}
+.h-fl{position:absolute;left:var(--x);top:0;width:var(--s);height:var(--s);opacity:0;will-change:transform;animation:rise var(--d) linear var(--dl) infinite}
+@keyframes rise{0%{transform:translate(0,105vh) rotate(0);opacity:0}10%{opacity:.16}90%{opacity:.16}100%{transform:translate(24px,-12vh) rotate(180deg);opacity:0}}
+
+/* ---- logo vivo ---- */
+.h-emblem{--e:min(74vw,310px);position:relative;width:var(--e);height:var(--e);margin-top:4px;animation:pop .9s cubic-bezier(.2,.9,.3,1.2) both}
+.h-ring{position:absolute;inset:calc(var(--e)*.1);border-radius:50%;border:3px solid var(--gold);opacity:.9;box-shadow:0 0 28px rgba(242,182,50,.25),inset 0 0 28px rgba(242,182,50,.12);animation:ringpulse 4.5s ease-in-out infinite}
+@keyframes ringpulse{50%{box-shadow:0 0 44px rgba(242,182,50,.45),inset 0 0 40px rgba(242,182,50,.2)}}
+.h-orbit{position:absolute;inset:0;animation:spin 70s linear infinite}
+.h-slot{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotate(calc(var(--i)*45deg)) translateY(calc(var(--e)*-.4))}
+.h-cnt{position:absolute;left:0;top:0;transform:rotate(calc(var(--i)*-45deg))}
+.h-cnt img{position:absolute;width:calc(var(--e)*.2);height:calc(var(--e)*.2);left:calc(var(--e)*-.1);top:calc(var(--e)*-.1);animation:unspin 70s linear infinite,bob 3.6s ease-in-out var(--d) infinite;filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes unspin{to{transform:rotate(-360deg)}}
+@keyframes bob{50%{translate:0 -3px;scale:1.07}}
+.h-king{position:absolute;left:50%;top:50%;width:calc(var(--e)*.33);transform:translate(-50%,-50%);filter:drop-shadow(0 0 18px rgba(242,182,50,.45));animation:kingfloat 4.5s ease-in-out infinite}
+@keyframes kingfloat{50%{transform:translate(-50%,-53%);filter:drop-shadow(0 0 30px rgba(242,182,50,.75))}}
+@keyframes pop{from{opacity:0;transform:scale(.75)}}
+
+/* ---- titolo ---- */
+.h-wordmark{margin:2px 0 0;font:400 clamp(40px,13vw,58px)/1 "Aoboshi One",Georgia,serif;letter-spacing:.07em;animation:rise-in .7s .25s both}
+.h-ele{color:var(--cream)}
+.h-mate{background:linear-gradient(100deg,#E0A52B 0,#E0A52B 38%,#FFF1B8 50%,#E0A52B 62%,#E0A52B 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:shine 5s ease-in-out 1s infinite}
+@keyframes shine{0%{background-position:120% 0}55%,100%{background-position:-60% 0}}
+.h-lead{margin:0;color:rgba(244,241,234,.72);max-width:34ch;font-size:16px;animation:rise-in .7s .4s both}
+@keyframes rise-in{from{opacity:0;transform:translateY(14px)}}
+
+/* ---- menu ---- */
+.h-menu{width:100%;display:flex;flex-direction:column;gap:11px;margin-top:6px;animation:rise-in .7s .55s both}
+#home .btn{background:rgba(255,255,255,.06);color:var(--cream);border:1px solid rgba(255,255,255,.16);border-radius:14px;min-height:50px;font-weight:800;transition:transform .15s,background .15s,border-color .15s,box-shadow .15s}
+#home .btn:hover:not(:disabled){background:rgba(255,255,255,.12);transform:translateY(-2px);border-color:rgba(255,255,255,.34)}
+#home .btn:active:not(:disabled){transform:translateY(0) scale(.98)}
+#home .btn.primary{background:linear-gradient(180deg,#F8CB52,#E2A22A);color:#2A1D05;border:0;font-size:17px;min-height:54px;box-shadow:0 8px 26px rgba(242,182,50,.32)}
+#home .btn.primary:hover:not(:disabled){background:linear-gradient(180deg,#FFD866,#EAAE35);box-shadow:0 10px 32px rgba(242,182,50,.5)}
+.botgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.h-lv{--c:#fff;border-left:5px solid var(--c)!important}
+.h-lv:hover:not(:disabled){box-shadow:0 0 0 1px var(--c),0 6px 20px color-mix(in srgb,var(--c) 35%,transparent)}
+.h-lv-easy{--c:var(--c-erba)} .h-lv-normal{--c:var(--c-acqua)} .h-lv-hard{--c:var(--c-fuoco)} .h-lv-master{--c:var(--c-psico)}
+#home .or{color:rgba(244,241,234,.55);font-size:14px;margin-top:6px}
+#home .joinrow input{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:var(--cream);border-radius:14px}
+#home .joinrow input::placeholder{color:rgba(244,241,234,.4)}
+#home .joinrow input:focus{outline:2px solid var(--gold);outline-offset:1px}
+#home .err{color:#FF9C92}
+#home .link{color:var(--gold)}
+
+/* titolo nella barra in alto durante la partita */
+#topbar h1{font-family:"Aoboshi One",Georgia,serif;font-weight:400;letter-spacing:.06em}
+
+@media (max-height:700px){.h-emblem{--e:min(60vw,240px)}}
+@media (prefers-reduced-motion:reduce){#home *,#home *::before{animation:none!important;transition:none!important}.h-fl{display:none}}

@@ -5,30 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EleMate</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preload" href="fonts/aoboshi-one.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="home.css">
+<meta name="theme-color" content="#192833">
+<meta name="description" content="EleMate: scacchi con HP, 8 elementi e strumenti. Ogni pezzo ha un elemento: trova il suo punto debole e dai scacco matto.">
+<meta property="og:title" content="EleMate">
+<meta property="og:description" content="Scacchi con HP, 8 elementi e strumenti. Gioca online con gli amici o contro il bot.">
+<meta property="og:image" content="logo-og.jpg">
 </head>
 <body>
 <div id="toast" role="status" aria-live="polite"></div>
 
-<section id="home" class="card home">
-  <h1><img src="logo.svg" alt="EleMate" class="logo"></h1>
-  <p class="lead">Scacchi con HP, tipi e strumenti. Si gioca in due, online.</p>
-  <button id="btnCreate" class="btn primary" type="button">Crea stanza</button>
-  <div class="or">oppure gioca contro il bot</div>
-  <div class="botgrid">
-    <button id="btnBotEasy" class="btn" type="button">Facile</button>
-    <button id="btnBotNormal" class="btn" type="button">Normale</button>
-    <button id="btnBotHard" class="btn" type="button">Difficile</button>
-    <button id="btnBotMaster" class="btn" type="button">Maestro</button>
+<section id="home">
+  <div class="h-bg" aria-hidden="true"><i class="h-blob h-b1"></i><i class="h-blob h-b2"></i><i class="h-blob h-b3"></i><i class="h-blob h-b4"></i><img class="h-fl" src="sprites/classico/tipo_fuoco.svg" alt="" style="--x:8%;--s:26px;--d:26s;--dl:-3s"><img class="h-fl" src="sprites/classico/tipo_acqua.svg" alt="" style="--x:22%;--s:20px;--d:31s;--dl:-14s"><img class="h-fl" src="sprites/classico/tipo_erba.svg" alt="" style="--x:36%;--s:30px;--d:24s;--dl:-9s"><img class="h-fl" src="sprites/classico/tipo_elettro.svg" alt="" style="--x:50%;--s:18px;--d:33s;--dl:-20s"><img class="h-fl" src="sprites/classico/tipo_ghiaccio.svg" alt="" style="--x:62%;--s:26px;--d:28s;--dl:-5s"><img class="h-fl" src="sprites/classico/tipo_psico.svg" alt="" style="--x:74%;--s:22px;--d:30s;--dl:-17s"><img class="h-fl" src="sprites/classico/tipo_buio.svg" alt="" style="--x:86%;--s:28px;--d:25s;--dl:-11s"><img class="h-fl" src="sprites/classico/tipo_folletto.svg" alt="" style="--x:15%;--s:16px;--d:35s;--dl:-24s"><img class="h-fl" src="sprites/classico/tipo_elettro.svg" alt="" style="--x:45%;--s:14px;--d:38s;--dl:-30s"><img class="h-fl" src="sprites/classico/tipo_acqua.svg" alt="" style="--x:92%;--s:18px;--d:34s;--dl:-8s"><img class="h-fl" src="sprites/classico/tipo_erba.svg" alt="" style="--x:68%;--s:16px;--d:29s;--dl:-26s"><img class="h-fl" src="sprites/classico/tipo_fuoco.svg" alt="" style="--x:30%;--s:18px;--d:36s;--dl:-18s"></div>
+  <div class="h-homewrap">
+    <div class="h-emblem" aria-hidden="true"><i class="h-ring"></i><div class="h-orbit"><span class="h-slot" style="--i:0;--d:0.00s"><span class="h-cnt"><img src="sprites/classico/tipo_acqua.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:1;--d:0.35s"><span class="h-cnt"><img src="sprites/classico/tipo_fuoco.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:2;--d:0.70s"><span class="h-cnt"><img src="sprites/classico/tipo_elettro.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:3;--d:1.05s"><span class="h-cnt"><img src="sprites/classico/tipo_erba.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:4;--d:1.40s"><span class="h-cnt"><img src="sprites/classico/tipo_folletto.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:5;--d:1.75s"><span class="h-cnt"><img src="sprites/classico/tipo_psico.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:6;--d:2.10s"><span class="h-cnt"><img src="sprites/classico/tipo_buio.svg" alt="" width="64" height="64"></span></span><span class="h-slot" style="--i:7;--d:2.45s"><span class="h-cnt"><img src="sprites/classico/tipo_ghiaccio.svg" alt="" width="64" height="64"></span></span></div><svg class="h-king" viewBox="0 0 100 150" aria-hidden="true"><defs><clipPath id="kr"><rect x="50" y="0" width="50" height="150"/></clipPath>
+<g id="kshape"><circle cx="50" cy="11" r="7.5"/><path d="M35 27h30l-2.5 9h-25z"/><rect x="31" y="43" width="38" height="10" rx="2.5"/><path d="M38 55c-1 26-7 46-18 63h60c-11-17-17-37-18-63z"/><path d="M16 118h68q7 0 7 7v3H9v-3q0-7 7-7z"/><rect x="11" y="128" width="78" height="11" rx="5.5"/></g></defs>
+<use href="#kshape" fill="#F2B632"/><use href="#kshape" fill="#000" opacity=".16" clip-path="url(#kr)"/><ellipse cx="32" cy="123" rx="7" ry="2.2" fill="#FFF3C4" opacity=".85"/></svg></div>
+    <h1 class="h-wordmark" aria-label="EleMate"><span class="h-ele">ELE</span><span class="h-mate">MATE</span></h1>
+    <p class="h-lead">Ogni pezzo ha un elemento. Trova il suo punto debole e dai scacco matto.</p>
+    <div class="h-menu">
+      <button id="btnCreate" class="btn primary" type="button">Crea stanza online</button>
+      <div class="or">oppure gioca contro il bot</div>
+      <div class="botgrid">
+        <button id="btnBotEasy" class="btn h-lv h-lv-easy" type="button">Facile</button>
+        <button id="btnBotNormal" class="btn h-lv h-lv-normal" type="button">Normale</button>
+        <button id="btnBotHard" class="btn h-lv h-lv-hard" type="button">Difficile</button>
+        <button id="btnBotMaster" class="btn h-lv h-lv-master" type="button">Maestro</button>
+      </div>
+      <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
+      <div class="or">oppure entra in una stanza</div>
+      <form id="joinForm" class="joinrow">
+        <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">
+        <button class="btn" type="submit">Entra</button>
+      </form>
+      <p id="homeErr" class="err" role="alert"></p>
+      <button id="btnRules" class="link" type="button">Come si gioca</button>
+    </div>
   </div>
-  <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
-  <div class="or">oppure entra in una stanza</div>
-  <form id="joinForm" class="joinrow">
-    <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">
-    <button class="btn" type="submit">Entra</button>
-  </form>
-  <p id="homeErr" class="err" role="alert"></p>
-  <button id="btnRules" class="link" type="button">Come si gioca</button>
 </section>
 
 <div id="game" hidden>
