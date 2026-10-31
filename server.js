@@ -182,6 +182,19 @@ io.on('connection', (socket) => {
     return null;
   }));
 
+  // esce dalla stanza e torna alla home (se la partita online è in corso conta come resa)
+  socket.on('leave', () => {
+    const room = rooms.get(socket.data.code);
+    const color = socket.data.color;
+    socket.data.code = null; socket.data.color = null;
+    if (!room || !color) return;
+    if (room.bot || room.local) { clearTimeout(room.botTimer); rooms.delete(room.code); return; }
+    if (room.game.phase === 'play') G.resign(room.game, color);
+    room.players[color] = null;
+    const other = room.players[G.other(color)];
+    if (!other || !other.sid) rooms.delete(room.code); else broadcast(room);
+  });
+
   socket.on('disconnect', () => {
     const room = rooms.get(socket.data.code);
     const color = socket.data.color;

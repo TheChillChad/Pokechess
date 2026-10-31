@@ -165,18 +165,23 @@
   function render() {
     if (!S) return;
     $('#home').hidden = true; $('#game').hidden = false;
-    renderTop(); renderStatus(); renderBoard(); renderPanel(); popEvent();
+    renderTop(); renderStatus(); renderBoard(); renderPanel(); popEvent(); renderEnd();
   }
 
   function renderTop() {
     const o = opp();
+    const lv = S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
+      : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>`;
     $('#topbar').innerHTML = `
-      <h1>EleMate</h1>
+      <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
+      <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}</span>
-      ${S.local ? '<span class="pill">Locale · stesso dispositivo</span>' : ''}<span class="pill" title="Avversario" ${S.local ? 'hidden' : ''}><span class="dot ${S.connected[o] ? 'on' : ''}"></span>${S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>
+      ${oppPill}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
+      <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
-      <button class="pill" id="btnTypes" type="button">Tabella tipi</button>
+      <button class="pill" id="btnTypes" type="button">Tipi</button>
       <button class="pill" id="btnRules2" type="button">Regole</button>`;
   }
 
@@ -203,7 +208,10 @@
       else main = S.winner === S.you ? 'Hai vinto!' : 'Hai perso';
       sub = S.reason || ''; if (S.winner) dot = S.winner;
     }
-    $('#status').innerHTML = `${dot ? `<span class="tdot team-${dot}"></span>` : ''}${alertBadge ? '<span class="badge-check">SCACCO</span>' : ''}<span>${main}</span><span class="sub">${esc(sub)}</span>`;
+    const st = $('#status');
+    st.className = dot ? 'team-' + dot : '';
+    const endBtns = S.phase === 'over' ? '<span class="endbtns"><button class="btn sm primary" type="button" data-act="rematch">Rivincita</button><button class="btn sm" type="button" data-act="home">Home</button></span>' : '';
+    st.innerHTML = `${dot ? `<span class="tdot team-${dot}"></span>` : ''}${alertBadge ? '<span class="badge-check">SCACCO</span>' : ''}<span class="main">${main}</span><span class="sub">${esc(sub)}</span>${endBtns}`;
   }
 
   function renderBoard() {
@@ -303,7 +311,7 @@
     const buttons = Sh.TYPES.map((t) => {
       const n = used[t];
       const dis = !turn || !sel || n >= Sh.MAX_PER_TYPE;
-      return `<button class="tbtn" type="button" data-act="type" data-type="${t}" ${dis ? 'disabled' : ''}><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}<small>${Sh.MAX_PER_TYPE - n} rimasti</small></button>`;
+      return `<button class="tbtn" style="--c:var(--c-${t})" type="button" data-act="type" data-type="${t}" ${dis ? 'disabled' : ''}><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}<small>${Sh.MAX_PER_TYPE - n} rimasti</small></button>`;
     }).join('');
     return `<div class="box"><h3>Draft dei tipi</h3>
       <div class="progress"><i style="width:${(S.picks / 30) * 100}%"></i></div>
@@ -319,12 +327,12 @@
     }
     const slots = [0, 1, 2].map((i) => {
       const it = ui.picks[i];
-      return `<button class="slot ${it ? 'full' : ''}" type="button" data-act="unpick" data-i="${i}">${it ? Sh.ITEMS[it].label : 'Vuoto'}</button>`;
+      return `<button class="slot ${it ? 'full' : ''}" type="button" data-act="unpick" data-i="${i}">${it ? Sh.ITEMS[it].icon + ' ' + Sh.ITEMS[it].label : 'Vuoto'}</button>`;
     }).join('');
     const cards = Sh.ITEM_IDS.map((i) => {
       const n = ui.picks.filter((x) => x === i).length;
       return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= Sh.KIT_SIZE ? 'disabled' : ''}>
-        <div><b>${Sh.ITEMS[i].label}</b><span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
+        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b><span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
     }).join('');
     return `<div class="box"><h3>Scegli 3 strumenti</h3>
       <p class="mute">Puoi prendere anche lo stesso più volte. Usarne uno costa il turno. Clicca uno slot per toglierlo.</p>
@@ -338,7 +346,7 @@
     if (S.phase === 'over') {
       const res = S.winner === null ? ['draw', 'Patta'] : S.winner === S.you ? ['win', 'Hai vinto!'] : ['lose', 'Hai perso'];
       html += `<div class="banner ${res[0]}">${res[1]}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
-        <button class="btn primary" type="button" data-act="rematch">Rivincita (colori scambiati)</button>`;
+        <div class="row"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button></div>`;
     }
     if (S.pending) {
       const p = byId(S.pending.id);
@@ -360,7 +368,7 @@
       const on = ui.item && ui.item.name === i;
       const dis = !def.active || !myTurn() || S.phase !== 'play' || (i === 'revitalizzante' && !S.graveyard[S.you].length) || (def.free && S.freeUsed);
       ibox += `<button class="icard ${on ? 'on' : ''}" type="button" data-act="useItem" data-item="${i}" ${dis ? 'disabled' : ''}>
-        <div><b>${def.label}</b><span>${def.desc}</span></div><span class="n">×${n}</span></button>`;
+        <div><b>${def.icon} ${def.label}</b><span>${def.desc}</span></div><span class="n">×${n}</span></button>`;
     }
     ibox += '</div>';
     if (ui.item) ibox += itemPrompt();
@@ -383,7 +391,7 @@
     let html = `<p style="margin-top:8px"><b>${msg}</b></p>`;
     if (it.name === 'metamorfosi' && it.id) {
       const cur = byId(it.id);
-      html += '<div class="typegrid">' + Sh.TYPES.filter((t) => t !== cur.type).map((t) => `<button class="tbtn" type="button" data-act="metaType" data-type="${t}"><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}</button>`).join('') + '</div>';
+      html += '<div class="typegrid">' + Sh.TYPES.filter((t) => t !== cur.type).map((t) => `<button class="tbtn" style="--c:var(--c-${t})" type="button" data-act="metaType" data-type="${t}"><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}</button>`).join('') + '</div>';
     }
     if (it.name === 'revitalizzante' && !it.id) {
       html += '<div class="grave">' + S.graveyard[S.you].map((id) => {
@@ -479,8 +487,55 @@
       case 'promote': socket.emit('promote', { role: d.role }); break;
       case 'resign': if (confirm('Vuoi davvero arrenderti?')) socket.emit('resign'); break;
       case 'rematch': socket.emit('rematch'); break;
+      case 'home': leaveRoom(); break;
     }
   });
+
+  // ---------- uscita, rivincita e schermata di fine partita ----------
+  function leaveRoom() {
+    if (S && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
+    if (S && (S.bot || S.local) && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
+    socket.emit('leave');
+    store('sm_room', null);
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
+    ui.endDismissed = false; $('#endcard').hidden = true;
+    showHome('');
+  }
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#status [data-act], #endcard [data-act]');
+    if (!btn || !S) return;
+    const a = btn.dataset.act;
+    if (a === 'rematch') { ui.endDismissed = false; socket.emit('rematch'); }
+    else if (a === 'home') leaveRoom();
+    else if (a === 'review') { ui.endDismissed = true; $('#endcard').hidden = true; }
+  });
+  let confettiRaf = 0;
+  function confetti() {
+    const cv = $('#confetti'); if (!cv || (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) return;
+    const box = cv.parentElement.getBoundingClientRect(); cv.width = box.width; cv.height = box.height;
+    const g = cv.getContext('2d'); const cols = ['#F08A4B', '#4FA3E8', '#6DBF5B', '#F3D03E', '#9ADCF2', '#C97FE3', '#F5A9CB', '#F2B632'];
+    const ps = Array.from({ length: 90 }, () => ({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * .6, w: 5 + Math.random() * 6, h: 8 + Math.random() * 8, vy: 1.6 + Math.random() * 2.4, vx: -1 + Math.random() * 2, r: Math.random() * 6, vr: -.2 + Math.random() * .4, c: cols[Math.floor(Math.random() * cols.length)] }));
+    const t0 = performance.now(); cancelAnimationFrame(confettiRaf);
+    (function frame(t) {
+      g.clearRect(0, 0, cv.width, cv.height);
+      for (const p of ps) { p.x += p.vx; p.y += p.vy; p.r += p.vr; g.save(); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c; g.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); g.restore(); }
+      if (t - t0 < 4500) confettiRaf = requestAnimationFrame(frame); else g.clearRect(0, 0, cv.width, cv.height);
+    })(t0);
+  }
+  function renderEnd() {
+    const el = $('#endcard');
+    if (!S || S.phase !== 'over') { el.hidden = true; ui.endDismissed = false; return; }
+    if (ui.endDismissed || !el.hidden) return;
+    const res = S.winner === null ? ['draw', 'Patta'] : S.local ? ['win', 'Vince il ' + teamName(S.winner)] : S.winner === S.you ? ['win', 'Vittoria!'] : ['lose', 'Sconfitta'];
+    el.innerHTML = `<div class="endbox ${res[0]}"><canvas id="confetti"></canvas>
+      <div class="end-ico">${res[0] === 'win' ? '👑' : res[0] === 'lose' ? '💥' : '🤝'}</div>
+      <h2 class="end-title">${res[1]}</h2><p class="end-reason">${esc(S.reason || '')}</p>
+      <div class="end-actions"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button>
+      <button class="btn" type="button" data-act="home">Torna alla home</button>
+      <button class="link" type="button" data-act="review">Guarda la scacchiera</button></div></div>`;
+    el.hidden = false;
+    if (res[0] === 'win') confetti();
+  }
 
   function copyLink() {
     const link = location.origin + location.pathname + '?stanza=' + roomCode;
@@ -518,9 +573,10 @@
   function openDialog(id, html) { const d = $(id); d.innerHTML = html; if (!d.open) d.showModal(); }
   $('#btnRules').addEventListener('click', () => openDialog('#dlgRules', rulesText()));
   document.addEventListener('click', (e) => {
-    const b = e.target.closest('#btnCopy, #btnTypes, #btnRules2, #btnSound');
+    const b = e.target.closest('#btnCopy, #btnTypes, #btnRules2, #btnSound, #btnHome');
     if (!b) return;
-    if (b.id === 'btnSound') { Sfx.setMuted(!Sfx.isMuted()); b.textContent = Sfx.isMuted() ? '🔇' : '🔊'; }
+    if (b.id === 'btnHome') leaveRoom();
+    else if (b.id === 'btnSound') { Sfx.setMuted(!Sfx.isMuted()); b.textContent = Sfx.isMuted() ? '🔇' : '🔊'; }
     else if (b.id === 'btnCopy') copyLink();
     else if (b.id === 'btnTypes') openDialog('#dlgTypes', typesTable());
     else openDialog('#dlgRules', rulesText());
