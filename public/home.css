@@ -29,7 +29,7 @@
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes unspin{to{transform:rotate(-360deg)}}
 @keyframes bob{50%{translate:0 -3px;scale:1.07}}
-.h-king{position:absolute;left:50%;top:50%;width:calc(var(--e)*.33);transform:translate(-50%,-50%);filter:drop-shadow(0 0 18px rgba(242,182,50,.45));animation:kingfloat 4.5s ease-in-out infinite}
+.h-king{position:absolute;left:50%;top:50%;width:calc(var(--e)*.34);transform:translate(-50%,-50%);filter:drop-shadow(0 0 18px rgba(242,182,50,.45));animation:kingfloat 4.5s ease-in-out infinite}
 @keyframes kingfloat{50%{transform:translate(-50%,-53%);filter:drop-shadow(0 0 30px rgba(242,182,50,.75))}}
 @keyframes pop{from{opacity:0;transform:scale(.75)}}
 
