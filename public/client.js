@@ -80,7 +80,7 @@
     if (!prev || !window.Sfx || prev.code !== st.code) return;
     const mine = st.you;
     if (prev.phase !== 'over' && st.phase === 'over') {
-      Sfx.play(st.winner === null ? 'draw' : st.winner === mine ? 'win' : 'lose');
+      Sfx.play(st.winner === null ? 'draw' : st.spectator || st.winner === mine ? 'win' : 'lose');
       return;
     }
     if (prev.phase === 'items' && st.phase === 'play') { Sfx.play('start'); return; }
@@ -173,11 +173,25 @@
     const lv = S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>`;
+    const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
+    if (S.spectator) {
+      $('#topbar').innerHTML = `
+      <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
+      <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
+      <span class="pill">👁 Spettatore</span>
+      <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso</span>
+      ${eyes}
+      <span class="spacer"></span>
+      <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
+      <button class="pill" id="btnTypes" type="button">Tipi</button>
+      <button class="pill" id="btnRules2" type="button">Regole</button>`;
+      return;
+    }
     $('#topbar').innerHTML = `
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}</span>
-      ${oppPill}
+      ${oppPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -208,9 +222,20 @@
       else main = S.winner === S.you ? 'Hai vinto!' : 'Hai perso';
       sub = S.reason || ''; if (S.winner) dot = S.winner;
     }
+    if (S.spectator) {
+      sub = '';
+      if (S.phase === 'lobby') { main = 'In attesa dei giocatori'; dot = null; }
+      else if (S.phase === 'draft') { main = `Draft: sceglie il ${teamName(S.turn)}`; sub = `${S.picks}/${Sh.DRAFT_PICKS}`; }
+      else if (S.phase === 'items') { main = 'I giocatori scelgono gli strumenti'; dot = null; }
+      else if (S.phase === 'play') {
+        const chk = !!(S.check && S.check[S.turn]);
+        main = S.pendingBy ? `Il ${teamName(S.pendingBy)} sta promuovendo` : chk ? `Scacco al Re ${teamName(S.turn)}` : `Turno del ${teamName(S.turn)}`;
+        alertBadge = chk;
+      } else { main = S.winner === null ? 'Patta' : 'Vince il ' + teamName(S.winner); sub = S.reason || ''; if (!S.winner) dot = null; }
+    }
     const st = $('#status');
     st.className = dot ? 'team-' + dot : '';
-    const endBtns = S.phase === 'over' ? '<span class="endbtns"><button class="btn sm primary" type="button" data-act="rematch">Rivincita</button><button class="btn sm" type="button" data-act="home">Home</button></span>' : '';
+    const endBtns = S.spectator ? '' : S.phase === 'over' ? '<span class="endbtns"><button class="btn sm primary" type="button" data-act="rematch">Rivincita</button><button class="btn sm" type="button" data-act="home">Home</button></span>' : '';
     st.innerHTML = `${dot ? `<span class="tdot team-${dot}"></span>` : ''}${alertBadge ? '<span class="badge-check">SCACCO</span>' : ''}<span class="main">${main}</span><span class="sub">${esc(sub)}</span>${endBtns}`;
   }
 
@@ -280,6 +305,13 @@
   // ---------- pannello laterale ----------
   function renderPanel() {
     let html = '';
+    if (S.spectator) {
+      html += `<div class="box"><h3>Stai guardando</h3><p class="mute">Segui la partita in diretta: non puoi muovere. Clicca un pezzo per vederne le statistiche.</p>${spectatorItems()}</div>`;
+      if (S.phase !== 'lobby') html += infoPanel();
+      html += logPanel();
+      $('#panel').innerHTML = html;
+      return;
+    }
     if (S.phase === 'lobby') html += lobbyPanel();
     else if (S.phase === 'draft') html += draftPanel();
     else if (S.phase === 'items') html += itemsPanel();
@@ -287,6 +319,16 @@
     if (S.phase !== 'lobby' && S.phase !== 'items') html += infoPanel();
     html += logPanel();
     $('#panel').innerHTML = html;
+  }
+
+  function spectatorItems() {
+    if (S.phase !== 'play' && S.phase !== 'over') return '';
+    const row = (c) => {
+      const list = S.items[c] || [];
+      const n = Sh.ITEM_IDS.map((i) => ({ i, n: list.filter((x) => x === i).length })).filter((x) => x.n);
+      return `<p style="margin-top:6px"><b>${teamName(c)}:</b> ${n.length ? n.map((x) => `${Sh.ITEMS[x.i].icon} ${Sh.ITEMS[x.i].label}${x.n > 1 ? ' ×' + x.n : ''}`).join(', ') : 'nessuno strumento'}</p>`;
+    };
+    return row('w') + row('b');
   }
 
   function lobbyPanel() {
@@ -493,8 +535,8 @@
 
   // ---------- uscita, rivincita e schermata di fine partita ----------
   function leaveRoom() {
-    if (S && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
-    if (S && (S.bot || S.local) && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
+    if (S && !S.spectator && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
+    if (S && !S.spectator && (S.bot || S.local) && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
     socket.emit('leave');
     store('sm_room', null);
     try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
@@ -526,12 +568,12 @@
     const el = $('#endcard');
     if (!S || S.phase !== 'over') { el.hidden = true; ui.endDismissed = false; return; }
     if (ui.endDismissed || !el.hidden) return;
-    const res = S.winner === null ? ['draw', 'Patta'] : S.local ? ['win', 'Vince il ' + teamName(S.winner)] : S.winner === S.you ? ['win', 'Vittoria!'] : ['lose', 'Sconfitta'];
+    const res = S.winner === null ? ['draw', 'Patta'] : S.local || S.spectator ? ['win', 'Vince il ' + teamName(S.winner)] : S.winner === S.you ? ['win', 'Vittoria!'] : ['lose', 'Sconfitta'];
     el.innerHTML = `<div class="endbox ${res[0]}"><canvas id="confetti"></canvas>
       <div class="end-ico">${res[0] === 'win' ? '👑' : res[0] === 'lose' ? '💥' : '🤝'}</div>
       <h2 class="end-title">${res[1]}</h2><p class="end-reason">${esc(S.reason || '')}</p>
-      <div class="end-actions"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button>
-      <button class="btn" type="button" data-act="home">Torna alla home</button>
+      <div class="end-actions">${S.spectator ? '' : `<button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button>`}
+      <button class="btn${S.spectator ? ' primary' : ''}" type="button" data-act="home">Torna alla home</button>
       <button class="link" type="button" data-act="review">Guarda la scacchiera</button></div></div>`;
     el.hidden = false;
     if (res[0] === 'win') confetti();

@@ -548,6 +548,7 @@ function publicState(room, color) {
     connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot || room.players.w.local)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot || room.players.b.local)) },
     bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
     local: !!room.local,
+    spectators: room.spectators ? room.spectators.size : 0,
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,

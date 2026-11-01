@@ -40,6 +40,19 @@ function newCode() {
 const validToken = (t) => typeof t === 'string' && t.length >= 8 && t.length <= 80;
 const validCode = (c) => typeof c === 'string' && /^[A-Z0-9]{5}$/.test(c);
 
+// vista per gli spettatori: Blu in basso, nessuna mossa possibile, strumenti visibili solo a partita iniziata
+function spectatorState(room) {
+  const st = G.publicState(room, 'w');
+  st.you = null; st.spectator = true; st.legal = {}; st.pending = null;
+  if (room.game.phase !== 'play' && room.game.phase !== 'over') st.items = { w: [], b: [] };
+  return st;
+}
+function sendSpectators(room) {
+  if (!room.spectators || !room.spectators.size) return;
+  const st = spectatorState(room);
+  for (const sid of room.spectators) io.to(sid).emit('state', st);
+}
+
 function broadcast(room) {
   room.touched = Date.now();
   if (room.local) {
@@ -52,6 +65,7 @@ function broadcast(room) {
     const pl = room.players[color];
     if (pl && pl.sid) io.to(pl.sid).emit('state', G.publicState(room, color));
   }
+  sendSpectators(room);
   scheduleBot(room);
 }
 
@@ -77,6 +91,7 @@ function seat(room, socket, color, token) {
   room.players[color] = { token, sid: socket.id };
   socket.data.code = room.code;
   socket.data.color = color;
+  socket.data.spectator = false;
 }
 
 io.on('connection', (socket) => {
@@ -134,7 +149,16 @@ io.on('connection', (socket) => {
       seat(room, socket, color, data.token);
     } else {
       color = ['w', 'b'].find((c) => !room.players[c]);
-      if (!color) return cb({ error: 'La stanza è piena' });
+      if (!color) {
+        // stanza piena: si entra come spettatore (non nelle partite in locale)
+        if (room.local) return cb({ error: 'La stanza è piena' });
+        if (!room.spectators) room.spectators = new Set();
+        if (room.spectators.size >= 20 && !room.spectators.has(socket.id)) return cb({ error: 'Troppi spettatori in questa stanza' });
+        room.spectators.add(socket.id);
+        socket.data.code = room.code; socket.data.color = null; socket.data.spectator = true;
+        cb({ ok: true, code: room.code, spectator: true });
+        return broadcast(room);
+      }
       seat(room, socket, color, data.token);
       if (room.players.w && room.players.b && room.game.phase === 'lobby') {
         room.game.phase = 'draft';
@@ -149,6 +173,7 @@ io.on('connection', (socket) => {
   function act(fn) {
     const room = rooms.get(socket.data.code);
     let color = socket.data.color;
+    if (socket.data.spectator) return socket.emit('errore', 'Stai guardando: non puoi giocare');
     if (room && room.local && color) color = G.actingColor(room.game);
     if (!room || !color) return socket.emit('errore', 'Non sei in una stanza');
     let err;
@@ -183,7 +208,13 @@ io.on('connection', (socket) => {
   }));
 
   // esce dalla stanza e torna alla home (se la partita online è in corso conta come resa)
+  function dropSpectator() {
+    const room = rooms.get(socket.data.code);
+    if (room && room.spectators) { room.spectators.delete(socket.id); broadcast(room); }
+    socket.data.code = null; socket.data.spectator = false;
+  }
   socket.on('leave', () => {
+    if (socket.data.spectator) return dropSpectator();
     const room = rooms.get(socket.data.code);
     const color = socket.data.color;
     socket.data.code = null; socket.data.color = null;
@@ -196,6 +227,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    if (socket.data.spectator) return dropSpectator();
     const room = rooms.get(socket.data.code);
     const color = socket.data.color;
     if (!room || !color) return;
