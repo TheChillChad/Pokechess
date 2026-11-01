@@ -16,6 +16,10 @@
     return t;
   })();
 
+  const myName = () => (store('sm_name') || '').trim().slice(0, 14);
+  const nameInput = document.querySelector('#nameInput');
+  if (nameInput) { nameInput.value = myName(); nameInput.addEventListener('input', () => store('sm_name', nameInput.value.trim().slice(0, 14) || null)); }
+
   // ---------- utilità ----------
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sprite = (name) => `sprites/${CFG.spriteSet}/${name}.svg`;
@@ -50,7 +54,7 @@
     try { history.replaceState(null, '', '?stanza=' + code); } catch (e) { /* ignora */ }
   }
   function joinRoom(code, silent) {
-    socket.emit('join', { code, token }, (res) => {
+    socket.emit('join', { code, token, name: myName() }, (res) => {
       if (res && res.ok) { enterRoom(res.code); return; }
       store('sm_room', null);
       try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
@@ -105,11 +109,11 @@
   }
 
   $('#btnCreate').addEventListener('click', () => {
-    socket.emit('create', { token }, (res) => {
+    socket.emit('create', { token, name: myName() }, (res) => {
       if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
     });
   });
-  const startBot = (level) => socket.emit('createBot', { token, level }, (res) => {
+  const startBot = (level) => socket.emit('createBot', { token, level, name: myName() }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   });
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
@@ -161,25 +165,49 @@
     return h;
   }
 
+  // ---------- reazioni rapide ----------
+  const REACTS = ['👍', '😮', '😂', '🔥', '😅', 'GG'];
+  function renderReactBar() {
+    const el = $('#reactbar');
+    const on = S && !S.bot && !S.local && S.phase !== 'lobby';
+    el.hidden = !on;
+    if (on && !el.dataset.ready) { el.dataset.ready = '1'; el.innerHTML = REACTS.map((e) => `<button type="button" data-react="${e}" aria-label="Reazione ${e}">${e}</button>`).join(''); }
+  }
+  $('#reactbar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-react]');
+    if (b) socket.emit('react', { e: b.dataset.react });
+  });
+  socket.on('reaction', (r) => {
+    const who = r.name || (r.from === 's' ? 'Spettatore' : teamName(r.from));
+    const el = document.createElement('div');
+    el.className = 'floater' + (r.e === 'GG' ? ' gg' : '');
+    el.style.left = (15 + Math.random() * 60) + '%';
+    el.innerHTML = `<span class="fe">${esc(r.e)}</span><span class="fn team-${r.from === 's' ? 'x' : r.from}">${esc(who)}</span>`;
+    $('#floaters').appendChild(el);
+    setTimeout(() => el.remove(), 2600);
+    if (window.Sfx) Sfx.play('pick', 0.3);
+  });
+
   // ---------- rendering ----------
   function render() {
     if (!S) return;
     $('#home').hidden = true; $('#game').hidden = false;
-    renderTop(); renderStatus(); renderBoard(); renderPanel(); popEvent(); renderEnd();
+    renderReactBar(); renderTop(); renderStatus(); renderBoard(); renderPanel(); popEvent(); renderEnd();
   }
 
   function renderTop() {
     const o = opp();
     const lv = S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
-      : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : S.connected[o] ? 'Avversario online' : 'Avversario offline'}</span>`;
+      : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
+    const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
     const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
     if (S.spectator) {
       $('#topbar').innerHTML = `
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill">👁 Spettatore</span>
-      <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso</span>
+      <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
       ${eyes}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -190,7 +218,7 @@
     $('#topbar').innerHTML = `
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
-      <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}</span>
+      <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>
       ${oppPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
@@ -388,7 +416,7 @@
     if (S.phase === 'over') {
       const res = S.winner === null ? ['draw', 'Patta'] : S.winner === S.you ? ['win', 'Hai vinto!'] : ['lose', 'Hai perso'];
       html += `<div class="banner ${res[0]}">${res[1]}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
-        <div class="row"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button></div>`;
+        <div class="row"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button>${(S.bot || S.local) && S.canUndo ? '<button class="btn" type="button" data-act="undo">↶ Annulla mossa</button>' : ''}</div>`;
     }
     if (S.pending) {
       const p = byId(S.pending.id);
@@ -416,7 +444,13 @@
     if (ui.item) ibox += itemPrompt();
     ibox += `<p class="mute" style="margin-top:8px">Avversario: ${theirs.length ? group(theirs).map((x) => `${Sh.ITEMS[x.i].label}${x.n > 1 ? ' ×' + x.n : ''}`).join(', ') : 'nessuno strumento'}</p></div>`;
     html += ibox;
-    if (S.phase === 'play') html += `<div class="row"><button class="btn sm" type="button" data-act="resign">Arrenditi</button></div>`;
+    if (S.phase === 'play') {
+      if (S.drawOffer && S.drawOffer !== S.you) html += `<div class="box"><h3>Patta?</h3><p>Il ${teamName(S.drawOffer)} propone la patta.</p><div class="row"><button class="btn primary" type="button" data-act="drawYes">Accetta</button><button class="btn" type="button" data-act="drawNo">Rifiuta</button></div></div>`;
+      let b = '<button class="btn sm" type="button" data-act="resign">Arrenditi</button>';
+      if (!S.bot && !S.local) b += S.drawOffer === S.you ? '<button class="btn sm" type="button" disabled>Patta proposta…</button>' : '<button class="btn sm" type="button" data-act="draw">Proponi patta</button>';
+      if (S.bot || S.local) b += `<button class="btn sm" type="button" data-act="undo" ${S.canUndo ? '' : 'disabled'}>↶ Annulla mossa</button>`;
+      html += `<div class="row">${b}</div>`;
+    }
     return html;
   }
 
@@ -529,6 +563,10 @@
       case 'promote': socket.emit('promote', { role: d.role }); break;
       case 'resign': if (confirm('Vuoi davvero arrenderti?')) socket.emit('resign'); break;
       case 'rematch': socket.emit('rematch'); break;
+      case 'draw': socket.emit('draw'); break;
+      case 'drawYes': socket.emit('drawReply', { accept: true }); break;
+      case 'drawNo': socket.emit('drawReply', { accept: false }); break;
+      case 'undo': socket.emit('undo'); break;
       case 'home': leaveRoom(); break;
     }
   });

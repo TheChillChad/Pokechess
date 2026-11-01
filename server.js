@@ -38,6 +38,8 @@ function newCode() {
   }
 }
 const validToken = (t) => typeof t === 'string' && t.length >= 8 && t.length <= 80;
+const REACTIONS = ['👍', '😮', '😂', '🔥', '😅', 'GG'];
+const cleanName = (n) => (typeof n === 'string' ? n.replace(/[\u0000-\u001f<>&"'`\\]/g, '').trim().slice(0, 14) : '');
 const validCode = (c) => typeof c === 'string' && /^[A-Z0-9]{5}$/.test(c);
 
 // vista per gli spettatori: Blu in basso, nessuna mossa possibile, strumenti visibili solo a partita iniziata
@@ -87,8 +89,9 @@ function scheduleBot(room) {
   }, delay);
 }
 
-function seat(room, socket, color, token) {
-  room.players[color] = { token, sid: socket.id };
+function seat(room, socket, color, token, name) {
+  const old = room.players[color];
+  room.players[color] = { token, sid: socket.id, name: name || (old && old.name) || '' };
   socket.data.code = room.code;
   socket.data.color = color;
   socket.data.spectator = false;
@@ -100,7 +103,7 @@ io.on('connection', (socket) => {
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
     const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
-    seat(room, socket, Math.random() < 0.5 ? 'w' : 'b', data.token);
+    seat(room, socket, Math.random() < 0.5 ? 'w' : 'b', data.token, cleanName(data.name));
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -113,7 +116,7 @@ io.on('connection', (socket) => {
     const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
     const mine = Math.random() < 0.5 ? 'w' : 'b';
-    seat(room, socket, mine, data.token);
+    seat(room, socket, mine, data.token, cleanName(data.name));
     const bc = G.other(mine);
     room.players[bc] = { token: '__bot__', sid: null, bot: true };
     room.bot = { color: bc, level };
@@ -129,7 +132,7 @@ io.on('connection', (socket) => {
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
     const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now(), local: true };
     rooms.set(room.code, room);
-    seat(room, socket, 'w', data.token);
+    seat(room, socket, 'w', data.token, cleanName(data.name));
     room.players.b = { token: data.token, sid: null, local: true };
     room.game.phase = 'draft';
     room.game.log.push('Partita in locale: passatevi il dispositivo. Draft dei tipi: il Blu comincia.');
@@ -146,7 +149,7 @@ io.on('connection', (socket) => {
     if (color) {
       const old = room.players[color].sid;
       if (old && old !== socket.id) { const s = io.sockets.sockets.get(old); if (s) { s.data.code = null; s.data.color = null; } }
-      seat(room, socket, color, data.token);
+      seat(room, socket, color, data.token, cleanName(data.name));
     } else {
       color = ['w', 'b'].find((c) => !room.players[c]);
       if (!color) {
@@ -155,11 +158,12 @@ io.on('connection', (socket) => {
         if (!room.spectators) room.spectators = new Set();
         if (room.spectators.size >= 20 && !room.spectators.has(socket.id)) return cb({ error: 'Troppi spettatori in questa stanza' });
         room.spectators.add(socket.id);
+        socket.data.name = cleanName(data.name);
         socket.data.code = room.code; socket.data.color = null; socket.data.spectator = true;
         cb({ ok: true, code: room.code, spectator: true });
         return broadcast(room);
       }
-      seat(room, socket, color, data.token);
+      seat(room, socket, color, data.token, cleanName(data.name));
       if (room.players.w && room.players.b && room.game.phase === 'lobby') {
         room.game.phase = 'draft';
         room.game.log.push('Entrambi in stanza. Draft dei tipi: scegliete a turno, il Blu comincia.');
@@ -177,8 +181,14 @@ io.on('connection', (socket) => {
     if (room && room.local && color) color = G.actingColor(room.game);
     if (!room || !color) return socket.emit('errore', 'Non sei in una stanza');
     let err;
+    // contro il bot e in locale si salva la posizione prima di ogni azione, per poterla annullare
+    const snap = (room.bot || room.local) && room.game.phase === 'play' ? structuredClone(room.game) : null;
     try { err = fn(room.game, color, room); } catch (e) { console.error(e); err = 'Errore interno'; }
     if (err) socket.emit('errore', err);
+    else {
+      room.drawOffer = null;
+      if (snap) { (room.snaps = room.snaps || []).push(snap); if (room.snaps.length > 60) room.snaps.shift(); }
+    }
     broadcast(room);
   }
 
@@ -191,6 +201,7 @@ io.on('connection', (socket) => {
   socket.on('rematch', () => act((g, c, room) => {
     if (g.phase !== 'over') return 'La partita non è finita';
     room.game = G.newGame();
+    room.snaps = []; room.drawOffer = null;
     room.game.phase = 'draft';
     // scambia i colori: chi era Rosso ora muove per primo
     if (!room.local) {
@@ -208,6 +219,51 @@ io.on('connection', (socket) => {
   }));
 
   // esce dalla stanza e torna alla home (se la partita online è in corso conta come resa)
+  const everyone = (room) => [...['w', 'b'].map((c) => room.players[c] && room.players[c].sid), ...(room.spectators || [])].filter(Boolean);
+  socket.on('react', (d) => {
+    const room = rooms.get(socket.data.code);
+    if (!room || room.local || room.bot || !d || !REACTIONS.includes(d.e)) return;
+    const now = Date.now();
+    if (now - (socket.data.lastReact || 0) < 800) return;
+    socket.data.lastReact = now;
+    const from = socket.data.spectator ? 's' : socket.data.color;
+    const name = socket.data.spectator ? socket.data.name : (room.players[from] && room.players[from].name) || '';
+    for (const sid of everyone(room)) io.to(sid).emit('reaction', { from, name, e: d.e });
+  });
+
+  // patta concordata (solo online)
+  socket.on('draw', () => {
+    const room = rooms.get(socket.data.code); const color = socket.data.color;
+    if (!room || !color || socket.data.spectator || room.local) return;
+    if (room.bot) return socket.emit('errore', 'Il bot non accetta la patta');
+    if (room.game.phase !== 'play' || room.drawOffer) return;
+    room.drawOffer = color; broadcast(room);
+  });
+  socket.on('drawReply', (d) => {
+    const room = rooms.get(socket.data.code); const color = socket.data.color;
+    if (!room || !color || socket.data.spectator || !room.drawOffer || room.drawOffer === color || room.game.phase !== 'play') return;
+    const offerer = room.players[room.drawOffer];
+    room.drawOffer = null;
+    if (d && d.accept) {
+      const g = room.game;
+      g.phase = 'over'; g.winner = null; g.reason = 'Patta concordata';
+      g.log.push('Patta concordata.');
+    } else if (offerer && offerer.sid) io.to(offerer.sid).emit('errore', 'La patta è stata rifiutata');
+    broadcast(room);
+  });
+
+  // annulla l'ultima azione (solo contro il bot o in locale)
+  socket.on('undo', () => {
+    const room = rooms.get(socket.data.code);
+    if (!room || socket.data.spectator || !(room.bot || room.local)) return;
+    const snap = room.snaps && room.snaps.pop();
+    if (!snap) return socket.emit('errore', 'Niente da annullare');
+    clearTimeout(room.botTimer); room.botTimer = null;
+    room.game = snap;
+    room.game.log.push('Mossa annullata.');
+    broadcast(room);
+  });
+
   function dropSpectator() {
     const room = rooms.get(socket.data.code);
     if (room && room.spectators) { room.spectators.delete(socket.id); broadcast(room); }

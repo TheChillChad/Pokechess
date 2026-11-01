@@ -16,6 +16,7 @@
 <meta property="og:image" content="logo-og.jpg">
 </head>
 <body>
+<div id="floaters" aria-hidden="true"></div>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <section id="home">
@@ -25,6 +26,7 @@
     <h1 class="h-wordmark" aria-label="EleMate"><span class="h-ele">ELE</span><span class="h-mate">MATE</span></h1>
     <p class="h-lead">Ogni pezzo ha un elemento. Trova il suo punto debole e dai scacco matto.</p>
     <div class="h-menu">
+      <input id="nameInput" class="h-name" maxlength="14" placeholder="Il tuo nome (facoltativo)" autocomplete="nickname" aria-label="Il tuo nome">
       <button id="btnCreate" class="btn primary" type="button">Crea stanza online</button>
       <div class="or">oppure gioca contro il bot</div>
       <div class="botgrid">
@@ -50,6 +52,7 @@
   <main>
     <section id="left">
       <div id="status"></div>
+      <div id="reactbar" hidden></div>
       <div id="boardWrap"><div id="board" aria-label="Scacchiera"></div></div>
     </section>
     <aside id="panel"></aside>

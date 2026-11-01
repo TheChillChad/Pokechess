@@ -64,3 +64,7 @@
 
 @media (max-height:700px){.h-emblem{--e:min(60vw,240px)}}
 @media (prefers-reduced-motion:reduce){#home *,#home *::before{animation:none!important;transition:none!important}.h-fl{display:none}}
+
+#home .h-name{width:100%;box-sizing:border-box;padding:12px 14px;font-size:16px;text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:var(--cream);border-radius:14px}
+#home .h-name::placeholder{color:rgba(244,241,234,.4)}
+#home .h-name:focus{outline:2px solid var(--gold);outline-offset:1px}

@@ -80,3 +80,18 @@ dialog::backdrop{background:rgba(8,14,20,.65)}
 @media (prefers-reduced-motion:reduce){#endcard,.endbox{animation:none}}
 
 @media (max-width:560px){#topbar h1{font-size:19px}.pill{padding:4px 9px}}
+
+/* reazioni rapide */
+#reactbar{display:flex;gap:6px;justify-content:center;margin:-4px 0 10px}
+#reactbar[hidden]{display:none}
+#reactbar button{font-size:18px;line-height:1;min-width:42px;padding:7px 9px;border-radius:12px;background:var(--glass);border:1px solid var(--line);color:var(--ink);font-weight:800;cursor:pointer;transition:transform .12s,background .12s}
+#reactbar button:hover{background:var(--glass2);transform:translateY(-2px)}
+#reactbar button:active{transform:scale(.92)}
+#floaters{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+.floater{position:absolute;bottom:18%;display:flex;flex-direction:column;align-items:center;gap:2px;animation:floatup 2.5s ease-out forwards}
+.floater .fe{font-size:44px;line-height:1;filter:drop-shadow(0 4px 10px rgba(0,0,0,.5))}
+.floater.gg .fe{font:400 34px "Aoboshi One",Georgia,serif;color:var(--gold)}
+.floater .fn{font-size:12px;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(8,14,20,.75);color:var(--ink)}
+.floater .fn.team-w{color:#9DBBFF}.floater .fn.team-b{color:#FFA89F}
+@keyframes floatup{0%{opacity:0;transform:translateY(20px) scale(.6)}15%{opacity:1;transform:translateY(0) scale(1.15)}30%{transform:scale(1)}100%{opacity:0;transform:translateY(-34vh)}}
+@media (prefers-reduced-motion:reduce){.floater{animation:none;opacity:1}}
