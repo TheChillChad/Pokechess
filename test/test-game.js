@@ -517,4 +517,24 @@ t('rematch e normMods: opzioni sconosciute diventano "visibile"', () => {
   assert.strictEqual(G.newGame({ lucky: { vis: 'full' } }).mods.lucky.vis, 'full');
 });
 
+t('Revitalizzante: l\'alfiere torna solo su caselle del suo colore', () => {
+  const g = startedGame(['revitalizzante', 'pozione', 'pozione'], []); clear(g);
+  const bish = Object.values(g.pieces).find((p) => p.color === 'w' && p.role === 'alfiere'); // parte in (7,c)
+  bish.alive = false; g.graveyard.w.push(bish.id);
+  const shade = (bish.r + bish.c) % 2;
+  const wrong = [6, 7].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c])).find(([r, c]) => (r + c) % 2 !== shade && !at(g, r, c));
+  const right = [6, 7].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c])).find(([r, c]) => (r + c) % 2 === shade && !at(g, r, c));
+  assert.ok(G.useItem(g, 'w', { item: 'revitalizzante', id: bish.id, r: wrong[0], c: wrong[1] }), 'colore sbagliato rifiutato');
+  assert.strictEqual(G.useItem(g, 'w', { item: 'revitalizzante', id: bish.id, r: right[0], c: right[1] }), null);
+  assert.ok(bish.alive);
+});
+t('Cambio: un alfiere non può cambiare colore di casella', () => {
+  const g = startedGame(['cambio', 'pozione', 'pozione'], []); clear(g);
+  place(g, 'w2', 7, 2); const k = Object.values(g.pieces).find((p) => p.role === 're' && p.color === 'w'); // alfiere in (7,2)
+  place(g, 'w1', 6, 2);   // cavallo: (6,2) ha colore opposto a (7,2)
+  place(g, 'w6', 6, 3);   // cavallo: (6,3) ha lo stesso colore di (7,2)
+  assert.ok(G.useItem(g, 'w', { item: 'cambio', a: 'w2', b: 'w1' }), 'colore diverso: rifiutato');
+  assert.strictEqual(G.useItem(g, 'w', { item: 'cambio', a: 'w2', b: 'w6' }), null);
+});
+
 console.log(`\n${passed} test passati`);

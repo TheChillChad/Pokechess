@@ -56,6 +56,9 @@ function newGame(mods) {
 }
 
 // ---------- utilità ----------
+// un alfiere resta sempre sullo stesso colore di caselle: (r+c)%2 della casella in cui si trova (o in cui è caduto) non cambia mai
+const sameShade = (r1, c1, r2, c2) => (r1 + c1) % 2 === (r2 + c2) % 2;
+const shadeName = (r, c) => ((r + c) % 2 ? 'scure' : 'chiare');
 function name(p) {
   return cap(p.role) + (p.type ? ' ' + cap(p.type) : '') + ' (' + S.TEAM[p.color] + ')';
 }
@@ -371,6 +374,7 @@ function applyItem(g, color, a) {
       if (!p1 || !p2 || p1 === p2) return 'Scegli due tuoi pezzi diversi';
       const bad = (p, r) => p.role === 'pedone' && (r === 0 || r === 7);
       if (bad(p1, p2.r) || bad(p2, p1.r)) return 'Un pedone non può finire su una riga di fondo';
+      if ((p1.role === 'alfiere' && !sameShade(p1.r, p1.c, p2.r, p2.c)) || (p2.role === 'alfiere' && !sameShade(p2.r, p2.c, p1.r, p1.c))) return 'Un alfiere non può cambiare colore di casella';
       p1.hasMoved = p2.hasMoved = true;
       [p1.r, p2.r] = [p2.r, p1.r];
       [p1.c, p2.c] = [p2.c, p1.c];
@@ -386,6 +390,7 @@ function applyItem(g, color, a) {
       const allowed = p.role === 'pedone' ? [color === 'w' ? 6 : 1] : rows;
       if (!allowed.includes(a.r)) return p.role === 'pedone' ? 'Un pedone torna sulla tua seconda fila' : 'Scegli una casella nelle tue prime due file';
       if (grid(g)[a.r][a.c]) return 'La casella è occupata';
+      if (p.role === 'alfiere' && !sameShade(a.r, a.c, p.r, p.c)) return `Un alfiere può tornare solo sulle caselle ${shadeName(p.r, p.c)}`;
       p.alive = true; p.r = a.r; p.c = a.c; p.hasMoved = true;
       p.hp = Math.ceil(p.maxHp / 2);
       p.shield = false; p.boost = false; p.frozen = false; p.rage = 0; p.guard = 0;
@@ -642,5 +647,5 @@ function publicState(room, color) {
 module.exports = {
   newGame, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
-  actingColor, simClone, applyMoveCore, applyItem, // usate dal bot per simulare
+  actingColor, simClone, sameShade, applyMoveCore, applyItem, // usate dal bot per simulare
 };

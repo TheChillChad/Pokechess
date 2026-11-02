@@ -165,7 +165,11 @@ function cands(g, color, level) {
     const gr = G.grid(g);
     const free = [];
     for (const r of rows) for (let c = 0; c < 8; c++) if (!gr[r][c]) free.push([r, c]);
-    for (const id of g.graveyard[color]) for (const [r, c] of shuffle(free).slice(0, 3)) pushItem({ item: 'revitalizzante', id, r, c }, 0.8, false);
+    for (const id of g.graveyard[color]) {
+      const dead = g.pieces[id];
+      const ok = free.filter(([r, c]) => dead.role !== 'alfiere' || G.sameShade(r, c, dead.r, dead.c)); // l'alfiere torna sul suo colore
+      for (const [r, c] of shuffle(ok).slice(0, 3)) pushItem({ item: 'revitalizzante', id, r, c }, 0.8, false);
+    }
   }
   if (!g.freeUsed) {
     const oppMoves = G.legalMoves(g, opp);

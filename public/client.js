@@ -154,12 +154,15 @@
       S.pieces.filter((p) => p.alive && p.color !== S.you && p.role !== 're' && !(it.name === 'paralisi' && p.frozen)).forEach(mark);
     }
     else if (it.name === 'cambio') {
-      mine.filter((p) => p.id !== it.first).forEach(mark);
+      const f0 = it.first ? byId(it.first) : null;
+      // un alfiere non può cambiare colore di casella
+      const swapOk = (x, y) => !((x.role === 'alfiere' || y.role === 'alfiere') && (x.r + x.c) % 2 !== (y.r + y.c) % 2);
+      mine.filter((p) => p.id !== it.first && (!f0 || swapOk(f0, p))).forEach(mark);
       if (it.first) { const f = byId(it.first); h.sel = f.id; }
     } else if (it.name === 'revitalizzante' && it.id) {
       const p = byId(it.id);
       const rows = p.role === 'pedone' ? [S.you === 'w' ? 6 : 1] : (S.you === 'w' ? [6, 7] : [0, 1]);
-      for (const r of rows) for (let c = 0; c < 8; c++) if (!pieceAt(r, c)) h.pick[r + ',' + c] = 1;
+      for (const r of rows) for (let c = 0; c < 8; c++) if (!pieceAt(r, c) && (p.role !== 'alfiere' || (r + c) % 2 === (p.r + p.c) % 2)) h.pick[r + ',' + c] = 1;
     }
   }
   function computeHl() {
@@ -477,7 +480,7 @@
     if (it.name === 'pozione') msg = 'Clicca un tuo pezzo ferito.';
     else if (it.name === 'scudo' || it.name === 'cristallo') msg = 'Clicca il tuo pezzo.';
     else if (it.name === 'cambio') msg = it.first ? 'Ora clicca il secondo pezzo.' : 'Clicca il primo pezzo da scambiare.';
-    else if (it.name === 'revitalizzante') msg = it.id ? 'Clicca una casella libera evidenziata.' : 'Scegli quale pezzo riportare in campo:';
+    else if (it.name === 'revitalizzante') msg = it.id ? (byId(it.id).role === 'alfiere' ? 'Clicca una casella libera evidenziata (l\'alfiere torna sul suo colore).' : 'Clicca una casella libera evidenziata.') : 'Scegli quale pezzo riportare in campo:';
     else if (it.name === 'paralisi') msg = 'Clicca il pezzo avversario da paralizzare.';
     else if (it.name === 'bomba') msg = 'Clicca il pezzo avversario da bombardare (3 danni).';
     else if (it.name === 'metamorfosi') msg = it.id ? 'Scegli il nuovo tipo:' : 'Clicca il tuo pezzo da trasformare.';
