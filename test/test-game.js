@@ -433,4 +433,88 @@ t('scelta strumenti: 3 a testa, la partita parte quando entrambi hanno scelto', 
   assert.strictEqual(g.turn, 'w');
 });
 
+console.log('Caselle fortunate');
+// partita con modificatore, pezzi sgomberati e una casella fortunata fissata a mano
+function luckyGame(bonus, vis = 'pos') {
+  const g = startedGame(['pozione', 'pozione', 'pozione'], ['pozione', 'pozione', 'pozione']);
+  g.mods = { lucky: { vis } };
+  g.lucky = { sq: { r: 4, c: 3, bonus }, nextAt: 99 };
+  clear(g);
+  place(g, 'w8', 5, 3);   // pedone Blu sotto la casella
+  place(g, 'b8', 1, 0);
+  return g;
+}
+t('senza modificatore non esiste nessuna casella fortunata', () => {
+  const g = G.newGame();
+  assert.strictEqual(g.lucky, null);
+  assert.deepStrictEqual(g.mods, { lucky: null });
+});
+t('la casella compare dopo 4 mezze mosse, libera e nelle righe centrali', () => {
+  const g = startedGame(); g.mods = { lucky: { vis: 'pos' } }; g.lucky = { sq: null, nextAt: 4 };
+  const moves = [['w', 'w8', 5, 0], ['b', 'b8', 2, 0], ['w', 'w9', 5, 1], ['b', 'b9', 2, 1]];
+  moves.forEach(([col, id, r, c], i) => { assert.strictEqual(g.lucky.sq, null, 'non ancora (' + i + ')'); assert.strictEqual(G.move(g, col, id, r, c), null); });
+  assert.ok(g.lucky.sq, 'dopo 4 mezze mosse compare');
+  assert.ok(g.lucky.sq.r >= 2 && g.lucky.sq.r <= 5);
+  assert.ok(!at(g, g.lucky.sq.r, g.lucky.sq.c));
+});
+t('Cura: +3 HP al pezzo, mai oltre il massimo, e la casella si svuota', () => {
+  const g = luckyGame('cura'); g.pieces.w8.hp = 2;
+  assert.strictEqual(G.move(g, 'w', 'w8', 4, 3), null);
+  assert.strictEqual(g.pieces.w8.hp, 4);                  // pedone da 4 HP: 2+3 → 4 (massimo)
+  assert.strictEqual(g.lucky.sq, null);
+  assert.ok(g.lucky.nextAt > g.ply);
+});
+t('Rabbia: +1 danno per 3 turni di chi la prende', () => {
+  const g = luckyGame('rabbia'); place(g, 'b9', 4, 5, { type: 'psico' });
+  G.move(g, 'w', 'w8', 4, 3); assert.ok(g.pieces.w8.rage > 0);
+  const p = g.pieces.w8, d = g.pieces.b9;
+  const base = Math.max(1, Math.round(p.atk * S.mult(p.type, d.type)));
+  const prevRage = p.rage; p.rage = 0; const noRage = G.calcDamage(p, d).dmg; p.rage = prevRage;
+  assert.strictEqual(G.calcDamage(p, d).dmg, noRage + 1);
+  assert.strictEqual(noRage, base);
+  for (let i = 0; i < 4; i++) { p.rage && p.rage--; }
+  assert.strictEqual(G.calcDamage(p, d).dmg, noRage, 'a fine effetto torna normale');
+});
+t('Corazza: −1 danno subito (minimo 1)', () => {
+  const g = luckyGame('corazza'); place(g, 'b9', 3, 3, { type: 'fuoco' });
+  G.move(g, 'w', 'w8', 4, 3); const d = g.pieces.w8; assert.ok(d.guard > 0);
+  const att = g.pieces.b9; const withG = G.calcDamage(att, d).dmg; d.guard = 0; const without = G.calcDamage(att, d).dmg;
+  assert.strictEqual(withG, Math.max(1, without - 1));
+});
+t('i bonus a strumento finiscono nel kit di chi li prende (anche oltre i limiti)', () => {
+  const g = luckyGame('bomba'); const n = g.items.w.length;
+  G.move(g, 'w', 'w8', 4, 3);
+  assert.strictEqual(g.items.w.length, n + 1); assert.ok(g.items.w.includes('bomba'));
+  assert.strictEqual(g.items.b.length, n);
+});
+t('il Re prende la casella: gli strumenti vanno nel kit, HP e potenziamenti si sprecano', () => {
+  const g = luckyGame('cura'); place(g, 'w4', 5, 4);  // Re Blu
+  g.pieces.w4.r = 5; g.pieces.w4.c = 4; g.pieces.w8.alive = false;
+  const k = Object.values(g.pieces).find((p) => p.role === 're' && p.color === 'w'); k.r = 5; k.c = 3;
+  assert.strictEqual(G.move(g, 'w', k.id, 4, 3), null);
+  assert.strictEqual(g.lucky.sq, null); assert.ok(!k.rage && !k.guard);
+  const g2 = luckyGame('cristallo'); const k2 = Object.values(g2.pieces).find((p) => p.role === 're' && p.color === 'w'); g2.pieces.w8.alive = false; k2.r = 5; k2.c = 3;
+  const n = g2.items.w.length; G.move(g2, 'w', k2.id, 4, 3); assert.strictEqual(g2.items.w.length, n + 1);
+});
+t('un attacco che non uccide non fa prendere la casella', () => {
+  const g = luckyGame('cura'); place(g, 'b9', 4, 3, { type: 'erba', hp: 99, maxHp: 99 }); place(g, 'w8', 5, 4);
+  assert.strictEqual(G.move(g, 'w', 'w8', 4, 3), null);
+  assert.ok(g.lucky.sq, 'la casella è ancora lì');
+});
+t('visibilità: nascosta non manda niente, visibile manda solo la posizione, completa anche il bonus', () => {
+  const room = (g) => ({ code: 'ABCDE', game: g, players: { w: { sid: 'x' }, b: { sid: 'y' } } });
+  let g = luckyGame('bomba', 'hidden'); assert.strictEqual(G.publicState(room(g), 'w').lucky.sq, null);
+  g = luckyGame('bomba', 'pos'); let q = G.publicState(room(g), 'b').lucky.sq; assert.deepStrictEqual([q.r, q.c, q.bonus], [4, 3, null]);
+  g = luckyGame('bomba', 'full'); q = G.publicState(room(g), 'b').lucky.sq; assert.strictEqual(q.bonus, 'bomba');
+});
+t('nascosta: la cronaca non rivela quando appare', () => {
+  const g = startedGame(); g.mods = { lucky: { vis: 'hidden' } }; g.lucky = { sq: null, nextAt: 1 };
+  const before = g.log.length; G.move(g, 'w', 'w8', 5, 0);
+  assert.ok(g.lucky.sq); assert.ok(!g.log.slice(before).some((l) => /fortunata/i.test(l)));
+});
+t('rematch e normMods: opzioni sconosciute diventano "visibile"', () => {
+  assert.strictEqual(G.newGame({ lucky: { vis: 'boh' } }).mods.lucky.vis, 'pos');
+  assert.strictEqual(G.newGame({ lucky: { vis: 'full' } }).mods.lucky.vis, 'full');
+});
+
 console.log(`\n${passed} test passati`);

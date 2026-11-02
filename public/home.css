@@ -68,3 +68,14 @@
 #home .h-name{width:100%;box-sizing:border-box;padding:12px 14px;font-size:16px;text-align:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);color:var(--cream);border-radius:14px}
 #home .h-name::placeholder{color:rgba(244,241,234,.4)}
 #home .h-name:focus{outline:2px solid var(--gold);outline-offset:1px}
+
+#home .h-opts{width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:10px 14px;text-align:left}
+#home .h-opts summary{cursor:pointer;font-weight:700;color:var(--cream);list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px}
+#home .h-opts summary::-webkit-details-marker{display:none}
+#home .h-optson{font-size:12px;font-weight:800;color:#2A1D05;background:var(--gold);padding:2px 8px;border-radius:999px}
+#home .h-chk{display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--cream)}
+#home .h-chk input{width:20px;height:20px;accent-color:#F2B632}
+#home .h-optrow{margin-top:8px}
+#home .h-optrow select{width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:var(--cream);font-size:15px}
+#home .h-optrow select option{color:#111}
+#home .h-hint{margin:10px 0 0;color:rgba(244,241,234,.55);font-size:13px}

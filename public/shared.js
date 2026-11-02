@@ -60,6 +60,23 @@
   // quante copie dello stesso strumento si possono mettere nel kit (default: tutte e 3)
   const itemMax = (id) => (ITEMS[id] && ITEMS[id].max) || KIT_SIZE;
 
+  // Modificatore "caselle fortunate": cosa si può trovare (w = peso). I bonus con `item` vanno nel kit di chi li prende.
+  const LUCKY_BONUS = {
+    cura: { label: '+3 HP', icon: '💖', w: 25, desc: '+3 HP al pezzo (non oltre il massimo)' },
+    rabbia: { label: 'Rabbia', icon: '🔥', w: 15, desc: 'Il pezzo fa +1 danno per 3 turni' },
+    corazza: { label: 'Corazza', icon: '🧱', w: 15, desc: 'Il pezzo subisce −1 danno per 3 turni' },
+    cristallo: { item: 'cristallo', w: 15 },
+    pozione: { item: 'pozione', w: 10 },
+    cambio: { item: 'cambio', w: 10 },
+    bomba: { item: 'bomba', w: 10 },
+  };
+  const luckyInfo = (id) => {
+    const b = LUCKY_BONUS[id];
+    if (!b) return null;
+    return b.item ? { label: ITEMS[b.item].label, icon: ITEMS[b.item].icon, desc: 'Va nei tuoi strumenti: ' + ITEMS[b.item].desc, held: true } : { label: b.label, icon: b.icon, desc: b.desc, held: false };
+  };
+  const LUCKY_VIS = { hidden: 'Nascosta', pos: 'Visibile', full: 'Visibile con bonus' };
+
   const TEAM = { w: 'Blu', b: 'Rosso' };
   const MAX_PER_TYPE = 2;
   const KIT_SIZE = 3;
@@ -77,5 +94,5 @@
     return 1;
   }
 
-  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax };
+  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax, LUCKY_BONUS, LUCKY_VIS, luckyInfo };
 });

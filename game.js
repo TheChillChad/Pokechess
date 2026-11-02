@@ -13,7 +13,17 @@ function mkPiece(id, color, role, r, c) {
   return { id, color, role, type: null, hp: st.hp, maxHp: st.hp, atk: st.atk, r, c, alive: true, shield: false, boost: false, frozen: false, hasMoved: false };
 }
 
-function newGame() {
+const LUCKY_FIRST = 4; // la prima casella fortunata compare dopo 4 mezze mosse (2 a testa)
+const LUCKY_GAP = 6;   // e ricompare 6 mezze mosse (3 turni a testa) dopo essere stata presa
+
+// modificatori: { lucky: null | { vis: 'hidden' | 'pos' | 'full' } }
+function normMods(m) {
+  const l = m && m.lucky;
+  return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null };
+}
+
+function newGame(mods) {
+  mods = normMods(mods);
   const pieces = {};
   for (const color of ['w', 'b']) {
     const backR = color === 'w' ? 7 : 0;
@@ -39,6 +49,9 @@ function newGame() {
     lastMove: null,
     event: null,
     seq: 0,
+    mods,
+    lucky: mods.lucky ? { sq: null, nextAt: LUCKY_FIRST } : null, // sq: { r, c, bonus }
+    ply: 0, // mezze mosse giocate (serve alle caselle fortunate)
   };
 }
 
@@ -128,7 +141,10 @@ function calcDamage(att, def) {
   const eff = S.mult(att.type, def.type);
   let base = att.atk * eff;
   if (att.boost) base *= 1.5;
-  return { dmg: Math.max(1, Math.round(base)), eff, ko: false };
+  let dmg = Math.max(1, Math.round(base));
+  if (att.rage) dmg += 1;                         // Rabbia: +1 danno
+  if (def.guard) dmg = Math.max(1, dmg - 1);      // Corazza: −1 danno subito
+  return { dmg, eff, ko: false };
 }
 
 function preview(att, def) {
@@ -372,7 +388,7 @@ function applyItem(g, color, a) {
       if (grid(g)[a.r][a.c]) return 'La casella è occupata';
       p.alive = true; p.r = a.r; p.c = a.c; p.hasMoved = true;
       p.hp = Math.ceil(p.maxHp / 2);
-      p.shield = false; p.boost = false; p.frozen = false;
+      p.shield = false; p.boost = false; p.frozen = false; p.rage = 0; p.guard = 0;
       g.graveyard[color] = g.graveyard[color].filter((x) => x !== a.id);
       log(g, `${team} usa Revitalizzante: torna ${name(p)} con ${p.hp} HP.`);
       event(g, p.r, p.c, 'Torna!', 'heal');
@@ -415,14 +431,59 @@ function itemCanResolve(g, color) {
   return false;
 }
 
+// ---------- caselle fortunate ----------
+function pickBonus() {
+  const ids = Object.keys(S.LUCKY_BONUS);
+  let x = Math.random() * ids.reduce((a, i) => a + S.LUCKY_BONUS[i].w, 0);
+  for (const i of ids) { x -= S.LUCKY_BONUS[i].w; if (x < 0) return i; }
+  return ids[0];
+}
+function luckyTick(g) {
+  const L = g.lucky;
+  if (!L || L.sq || g.ply < L.nextAt || g.phase !== 'play') return;
+  const gr = grid(g);
+  const free = [];
+  for (let r = 2; r <= 5; r++) for (let c = 0; c < 8; c++) if (!gr[r][c]) free.push([r, c]);
+  if (!free.length) return;
+  const [r, c] = free[Math.floor(Math.random() * free.length)];
+  L.sq = { r, c, bonus: pickBonus() };
+  if (g.mods.lucky.vis !== 'hidden') log(g, 'Appare una casella fortunata!'); // nascosta: niente indizi nella cronaca
+}
+// il pezzo p si è appena fermato sulla sua casella: se è quella fortunata, prende il bonus
+function luckyPickup(g, color, p) {
+  const L = g.lucky;
+  if (!L || !L.sq || p.r !== L.sq.r || p.c !== L.sq.c) return;
+  const id = L.sq.bonus;
+  L.sq = null; L.nextAt = (g.ply || 0) + LUCKY_GAP;
+  const info = S.luckyInfo(id);
+  const team = S.TEAM[color];
+  if (info.held) {
+    g.items[color].push(S.LUCKY_BONUS[id].item);
+    log(g, `${team} trova ${info.label} sulla casella fortunata: aggiunto ai suoi strumenti.`);
+    event(g, p.r, p.c, info.label, 'buff');
+    return;
+  }
+  if (p.role === 're') {
+    log(g, `${team} trova ${info.label} con il Re: il bonus va sprecato.`);
+    event(g, p.r, p.c, 'Sprecato', 'weak');
+    return;
+  }
+  if (id === 'cura') { p.hp = Math.min(p.maxHp, p.hp + 3); event(g, p.r, p.c, '+3 HP', 'heal'); }
+  else if (id === 'rabbia') { p.rage = 4; event(g, p.r, p.c, 'Rabbia', 'buff'); }
+  else if (id === 'corazza') { p.guard = 4; event(g, p.r, p.c, 'Corazza', 'buff'); }
+  log(g, `${name(p)} trova ${info.label} sulla casella fortunata.`);
+}
+
 // ---------- turni ----------
 function endTurn(g) {
   if (g.phase === 'over') return;
   const prev = g.turn;
   const next = other(prev);
   // la Paralisi dura un solo turno: finisce quando chi la subiva ha "saltato" il suo
-  for (const p of Object.values(g.pieces)) if (p.color === prev) p.frozen = false;
+  for (const p of Object.values(g.pieces)) if (p.color === prev) { p.frozen = false; if (p.rage) p.rage--; if (p.guard) p.guard--; }
   g.turn = next;
+  g.ply = (g.ply || 0) + 1;
+  luckyTick(g);
   g.shieldLock = null;
   g.freeUsed = false;
   const chk = inCheck(g, next);
@@ -469,6 +530,7 @@ function move(g, color, id, r, c) {
   }
   const moved = applyMoveCore(g, color, p, r, c);
   if (g.phase === 'over') return null;
+  if (moved) luckyPickup(g, color, p);
 
   const lastRow = color === 'w' ? 0 : 7;
   if (moved && p.role === 'pedone' && p.r === lastRow) {
@@ -551,6 +613,8 @@ function publicState(room, color) {
     connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot || room.players.w.local)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot || room.players.b.local)) },
     bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
     local: !!room.local,
+    mods: g.mods,
+    lucky: g.lucky && g.mods.lucky ? { vis: g.mods.lucky.vis, sq: g.lucky.sq && g.mods.lucky.vis !== 'hidden' ? { r: g.lucky.sq.r, c: g.lucky.sq.c, bonus: g.mods.lucky.vis === 'full' ? g.lucky.sq.bonus : null } : null } : null,
     spectators: room.spectators ? room.spectators.size : 0,
     names: { w: (room.players.w && room.players.w.name) || '', b: (room.players.b && room.players.b.name) || '' },
     drawOffer: room.drawOffer || null,

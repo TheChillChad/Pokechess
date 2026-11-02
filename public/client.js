@@ -20,6 +20,17 @@
   const nameInput = document.querySelector('#nameInput');
   if (nameInput) { nameInput.value = myName(); nameInput.addEventListener('input', () => store('sm_name', nameInput.value.trim().slice(0, 14) || null)); }
 
+  // modificatori scelti nella home (valgono per la prossima partita creata)
+  const optLucky = $('#optLucky'), optVis = $('#optLuckyVis');
+  function saveMods() {
+    $('#optLuckyRow').hidden = !optLucky.checked;
+    $('#optsOn').hidden = !optLucky.checked;
+    store('sm_mods', JSON.stringify({ lucky: optLucky.checked, vis: optVis.value }));
+  }
+  try { const m = JSON.parse(store('sm_mods') || 'null'); if (m) { optLucky.checked = !!m.lucky; if (m.vis) optVis.value = m.vis; } } catch (e) { /* ignora */ }
+  optLucky.addEventListener('change', saveMods); optVis.addEventListener('change', saveMods); saveMods();
+  const getMods = () => ({ lucky: optLucky.checked ? { vis: optVis.value } : null });
+
   // ---------- utilità ----------
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const sprite = (name) => `sprites/${CFG.spriteSet}/${name}.svg`;
@@ -109,18 +120,18 @@
   }
 
   $('#btnCreate').addEventListener('click', () => {
-    socket.emit('create', { token, name: myName() }, (res) => {
+    socket.emit('create', { token, name: myName(), mods: getMods() }, (res) => {
       if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
     });
   });
-  const startBot = (level) => socket.emit('createBot', { token, level, name: myName() }, (res) => {
+  const startBot = (level) => socket.emit('createBot', { token, level, name: myName(), mods: getMods() }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   });
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
   $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
   $('#btnBotHard').addEventListener('click', () => startBot('hard'));
   $('#btnBotMaster').addEventListener('click', () => startBot('master'));
-  $('#btnLocal').addEventListener('click', () => socket.emit('createLocal', { token }, (res) => {
+  $('#btnLocal').addEventListener('click', () => socket.emit('createLocal', { token, mods: getMods() }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }));
   $('#joinForm').addEventListener('submit', (e) => {
@@ -201,6 +212,7 @@
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
+    const modPill = S.lucky ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
     const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
     if (S.spectator) {
       $('#topbar').innerHTML = `
@@ -208,7 +220,7 @@
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill">👁 Spettatore</span>
       <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
-      ${eyes}
+      ${modPill}${eyes}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tipi</button>
@@ -219,7 +231,7 @@
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>
-      ${oppPill}${eyes}
+      ${oppPill}${modPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -283,22 +295,27 @@
         if (h.move[key]) cls.push('mv', 'clickable');
         if (h.atk[key]) cls.push('at', 'clickable');
         if (h.pick[key]) cls.push('pick', 'clickable');
+        const lk = S.lucky && S.lucky.sq && S.lucky.sq.r === r && S.lucky.sq.c === c ? S.lucky.sq : null;
+        if (lk) cls.push('lucky');
         if (p && p.color === S.you && (S.phase === 'draft' || S.legal[p.id])) cls.push('clickable');
         let inner = '';
         if (dc === 0) inner += `<span class="coord rk">${8 - r}</span>`;
         if (dr === 7) inner += `<span class="coord f">${'abcdefgh'[c]}</span>`;
+        if (lk) inner += `<span class="lk" title="Casella fortunata">${lk.bonus ? Sh.luckyInfo(lk.bonus).icon : '✨'}</span>`;
         if (p) {
           const pc = ['pc', 'team-' + p.color];
           if (p.shield) pc.push('shield');
           if (p.boost) pc.push('boost');
           if (p.frozen) pc.push('frozen');
           if (S.shieldLock === p.id) pc.push('lock');
+          if (p.rage) pc.push('rage');
+          if (p.guard) pc.push('guard');
           let hp = '';
           if (p.maxHp) {
             const pct = Math.max(0, Math.round((p.hp / p.maxHp) * 100));
             hp = `<div class="hp"><i class="${pct <= 30 ? 'low' : pct <= 60 ? 'mid' : ''}" style="width:${pct}%"></i></div><span class="hpn">${p.hp}</span>`;
           }
-          inner += `<div class="${pc.join(' ')}"><img src="${pieceSprite(p)}" alt="${esc(pieceName(p))} ${teamName(p.color)}" draggable="false">${hp}</div>`;
+          inner += `<div class="${pc.join(' ')}"><img src="${pieceSprite(p)}" alt="${esc(pieceName(p))} ${teamName(p.color)}" draggable="false">${hp}${p.rage ? '<i class="bf">🔥</i>' : p.guard ? '<i class="bf">🧱</i>' : ''}</div>`;
         }
         const a = h.atk[key];
         if (a) {
@@ -494,7 +511,7 @@
         ${p.type ? `<div><small class="mute">Forte contro (×2)</small><div class="chips">${strong.map(chip).join('')}</div>
         <small class="mute">Debole a (subisce ×2)</small><div class="chips">${weak.map(chip).join('')}</div>
         <small class="mute">Resiste a (×0,5)</small><div class="chips">${res.map(chip).join('')}</div></div>` : '<p class="mute">Tipo non ancora assegnato.</p>'}
-        ${p.shield ? '<p><b>Scudo attivo</b>: ignora il prossimo attacco.</p>' : ''}${p.boost ? '<p><b>Cristallo attivo</b>: il prossimo attacco fa ×1,5.</p>' : ''}${p.frozen ? '<p><b>Paralizzato</b>: non può muoversi né attaccare al suo prossimo turno.</p>' : ''}`;
+        ${p.shield ? '<p><b>Scudo attivo</b>: ignora il prossimo attacco.</p>' : ''}${p.boost ? '<p><b>Cristallo attivo</b>: il prossimo attacco fa ×1,5.</p>' : ''}${p.frozen ? '<p><b>Paralizzato</b>: non può muoversi né attaccare al suo prossimo turno.</p>' : ''}${p.rage ? `<p><b>🔥 Rabbia</b>: +1 danno ancora per ${p.rage} turni.</p>` : ''}${p.guard ? `<p><b>🧱 Corazza</b>: −1 danno subito ancora per ${p.guard} turni.</p>` : ''}`;
     }
     return `<div class="box info"><div class="big team-${p.color}"><img src="${pieceSprite(p)}" alt=""></div><div style="flex:1;min-width:0"><h3>${esc(pieceName(p))}</h3>${body}</div></div>`;
   }
@@ -646,6 +663,7 @@
         <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
         <li><b>Strumenti</b> (costano il turno, tranne Scudo e Paralisi: azioni gratuite, una sola per turno, dopo le quali muovi un pezzo):${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>
+        ${S && S.lucky ? `<li><b>Caselle fortunate</b> (modificatore attivo): una casella libera delle righe centrali dà un bonus a chi ci arriva con un pezzo (anche catturando; il bersaglio deve morire). Bonus: +3 HP, Rabbia (+1 danno per 3 turni), Corazza (−1 danno subito per 3 turni) oppure uno strumento extra (Cristallo, Pozione, Cambio, Bomba). Il Re può prenderla, ma HP e potenziamenti si sprecano. Ne compare una nuova ${3} turni dopo.</li>` : ''}
         <li>Sotto scacco puoi usare uno strumento che costa il turno solo se toglie il Re dallo scacco (Cambio, Revitalizzante o Bomba su chi lo minaccia). Scudo e Paralisi sono gratuiti: li puoi usare (la Paralisi su chi dà scacco lo toglie), ma poi devi comunque muovere e il Re non può restare sotto scacco.</li>
       </ul>
       <form method="dialog"><button class="btn">Ho capito</button></form>`;

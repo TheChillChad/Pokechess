@@ -95,3 +95,13 @@ dialog::backdrop{background:rgba(8,14,20,.65)}
 .floater .fn.team-w{color:#9DBBFF}.floater .fn.team-b{color:#FFA89F}
 @keyframes floatup{0%{opacity:0;transform:translateY(20px) scale(.6)}15%{opacity:1;transform:translateY(0) scale(1.15)}30%{transform:scale(1)}100%{opacity:0;transform:translateY(-34vh)}}
 @media (prefers-reduced-motion:reduce){.floater{animation:none;opacity:1}}
+
+/* caselle fortunate e potenziamenti */
+.sq.lucky{box-shadow:inset 0 0 0 3px rgba(242,182,50,.85),inset 0 0 22px rgba(242,182,50,.55);animation:luckpulse 1.8s ease-in-out infinite}
+.sq .lk{position:absolute;inset:0;display:grid;place-items:center;font-size:clamp(16px,5.4vw,30px);pointer-events:none;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35));animation:luckbob 2.2s ease-in-out infinite}
+@keyframes luckpulse{50%{box-shadow:inset 0 0 0 3px rgba(242,182,50,1),inset 0 0 32px rgba(242,182,50,.8)}}
+@keyframes luckbob{50%{transform:translateY(-2px) scale(1.08)}}
+.pc .bf{position:absolute;left:1px;bottom:1px;font-style:normal;font-size:clamp(9px,2.8vw,14px);line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,.6))}
+.pc.rage img{filter:drop-shadow(0 0 5px #FF6B3D)}
+.pc.guard img{filter:drop-shadow(0 0 5px #9DB4C8)}
+@media (prefers-reduced-motion:reduce){.sq.lucky,.sq .lk{animation:none}}

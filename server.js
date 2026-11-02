@@ -101,7 +101,7 @@ io.on('connection', (socket) => {
   socket.on('create', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now() };
+    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
     seat(room, socket, Math.random() < 0.5 ? 'w' : 'b', data.token, cleanName(data.name));
     cb({ ok: true, code: room.code });
@@ -113,7 +113,7 @@ io.on('connection', (socket) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
     const level = ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
-    const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now() };
+    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
     const mine = Math.random() < 0.5 ? 'w' : 'b';
     seat(room, socket, mine, data.token, cleanName(data.name));
@@ -130,7 +130,7 @@ io.on('connection', (socket) => {
   socket.on('createLocal', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const room = { code: newCode(), game: G.newGame(), players: { w: null, b: null }, touched: Date.now(), local: true };
+    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now(), local: true };
     rooms.set(room.code, room);
     seat(room, socket, 'w', data.token, cleanName(data.name));
     room.players.b = { token: data.token, sid: null, local: true };
@@ -200,7 +200,7 @@ io.on('connection', (socket) => {
   socket.on('resign', () => act((g, c) => G.resign(g, c)));
   socket.on('rematch', () => act((g, c, room) => {
     if (g.phase !== 'over') return 'La partita non è finita';
-    room.game = G.newGame();
+    room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;
     room.game.phase = 'draft';
     // scambia i colori: chi era Rosso ora muove per primo

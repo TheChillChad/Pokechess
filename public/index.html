@@ -27,6 +27,18 @@
     <p class="h-lead">Ogni pezzo ha un elemento. Trova il suo punto debole e dai scacco matto.</p>
     <div class="h-menu">
       <input id="nameInput" class="h-name" maxlength="14" placeholder="Il tuo nome (facoltativo)" autocomplete="nickname" aria-label="Il tuo nome">
+      <details id="optsBox" class="h-opts">
+        <summary>⚙️ Modificatori di partita <span id="optsOn" class="h-optson" hidden>attivi</span></summary>
+        <label class="h-chk"><input type="checkbox" id="optLucky"> ✨ Caselle fortunate</label>
+        <div id="optLuckyRow" class="h-optrow" hidden>
+          <select id="optLuckyVis" aria-label="Visibilità delle caselle fortunate">
+            <option value="pos">Posizione visibile, bonus a sorpresa</option>
+            <option value="full">Posizione e bonus visibili</option>
+            <option value="hidden">Nascosta (la scopri solo arrivandoci)</option>
+          </select>
+        </div>
+        <p class="h-hint">Vale per la prossima partita che crei: online, contro il bot o in locale. Una casella libera nelle righe centrali dà un bonus a chi ci arriva.</p>
+      </details>
       <button id="btnCreate" class="btn primary" type="button">Crea stanza online</button>
       <div class="or">oppure gioca contro il bot</div>
       <div class="botgrid">

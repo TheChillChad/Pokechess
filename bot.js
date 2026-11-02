@@ -4,6 +4,7 @@ const G = require('./game.js');
 const S = require('./public/shared.js');
 
 const VAL = { pedone: 1, cavallo: 3, alfiere: 3, torre: 5, regina: 9, re: 0 };
+const LUCK = 1.2; // quanto vale per il bot prendere una casella fortunata
 const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -121,14 +122,17 @@ function cands(g, color, level) {
   const opp = G.other(color);
   const out = [], entries = [];
   const lm = G.legalMoves(g, color);
+  const lsq = g.lucky && g.lucky.sq && g.mods && g.mods.lucky && g.mods.lucky.vis !== 'hidden' ? g.lucky.sq : null; // nascosta: il bot non la conosce
   for (const id of Object.keys(lm)) for (const m of lm[id]) {
     const sim = G.simClone(g);
     play(sim, color, id, m.r, m.c);
     endSim(sim, color);
     const c = { kind: 'move', id, r: m.r, c: m.c, score: 0 };
     out.push(c);
-    if (level === 'easy') c.score = ev(sim, color) + Math.random() * 2.5;
-    else entries.push({ c, sim, cost: 0 });
+    // casella fortunata nota (visibile): arrivarci vale come un po' di materiale
+    const luck = lsq && sim.pieces[id].r === lsq.r && sim.pieces[id].c === lsq.c ? LUCK : 0;
+    if (level === 'easy') c.score = ev(sim, color) + Math.random() * 2.5 + luck;
+    else entries.push({ c, sim, cost: -luck });
   }
   if (level === 'easy') return out;
 
