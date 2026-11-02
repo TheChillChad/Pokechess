@@ -105,3 +105,16 @@ dialog::backdrop{background:rgba(8,14,20,.65)}
 .pc.rage img{filter:drop-shadow(0 0 5px #FF6B3D)}
 .pc.guard img{filter:drop-shadow(0 0 5px #9DB4C8)}
 @media (prefers-reduced-motion:reduce){.sq.lucky,.sq .lk{animation:none}}
+
+/* campo di prova */
+.sbtabs{margin-bottom:12px}
+.sbrow{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0}
+.sbc{display:inline-flex;align-items:center;gap:5px;padding:6px 10px;border-radius:10px;background:var(--glass);border:2px solid var(--line);color:var(--ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:background .12s,border-color .12s}
+.sbc:hover{border-color:rgba(255,255,255,.35)}
+.sbc.on{border-color:var(--gold);background:rgba(242,182,50,.16)}
+.sbc img{width:22px;height:22px}
+.sbroles .sbc img{width:34px;height:34px}
+.sbc .tdot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.sbstat{display:flex;align-items:center;gap:8px;margin:4px 0}
+.sbstat span{min-width:58px;color:var(--mute)}
+.sbstat b{min-width:54px;text-align:center}

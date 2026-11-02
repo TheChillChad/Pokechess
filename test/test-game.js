@@ -264,10 +264,10 @@ t('Cristallo moltiplica ×1,5 una volta sola', () => {
 });
 t('Cambio scambia due pezzi', () => {
   const g = startedGame(['cambio', 'pozione', 'scudo']);
-  const a = [g.pieces.w1.r, g.pieces.w1.c], b = [g.pieces.w2.r, g.pieces.w2.c];
-  assert.strictEqual(G.useItem(g, 'w', { item: 'cambio', a: 'w1', b: 'w2' }), null);
+  const a = [g.pieces.w1.r, g.pieces.w1.c], b = [g.pieces.w6.r, g.pieces.w6.c]; // due cavalli
+  assert.strictEqual(G.useItem(g, 'w', { item: 'cambio', a: 'w1', b: 'w6' }), null);
   assert.deepStrictEqual([g.pieces.w1.r, g.pieces.w1.c], b);
-  assert.deepStrictEqual([g.pieces.w2.r, g.pieces.w2.c], a);
+  assert.deepStrictEqual([g.pieces.w6.r, g.pieces.w6.c], a);
 });
 t('Revitalizzante riporta un pezzo con metà HP nelle prime due file', () => {
   const g = startedGame(['revitalizzante', 'pozione', 'scudo']);
@@ -535,6 +535,85 @@ t('Cambio: un alfiere non può cambiare colore di casella', () => {
   place(g, 'w6', 6, 3);   // cavallo: (6,3) ha lo stesso colore di (7,2)
   assert.ok(G.useItem(g, 'w', { item: 'cambio', a: 'w2', b: 'w1' }), 'colore diverso: rifiutato');
   assert.strictEqual(G.useItem(g, 'w', { item: 'cambio', a: 'w2', b: 'w6' }), null);
+});
+
+console.log('Campo di prova');
+t('campo di prova: parte in gioco con tutti gli strumenti, e si può svuotare', () => {
+  const g = G.sandboxGame('start');
+  assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.sandbox, true);
+  assert.strictEqual(g.items.w.length, S.ITEM_IDS.length);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'reset', preset: 'empty' }), null);
+  assert.deepStrictEqual(Object.values(g.pieces).map((p) => p.role), ['re', 're']);
+});
+t('campo di prova: metti, modifica, sposta e togli pezzi (i Re no)', () => {
+  const g = G.sandboxGame('empty');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 4, c: 4, color: 'w', role: 'regina', type: 'fuoco' }), null);
+  const q = at(g, 4, 4); assert.strictEqual(q.hp, 10); assert.strictEqual(q.type, 'fuoco');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'hp', value: 3 }), null); assert.strictEqual(q.hp, 3);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'role', value: 'torre' }), null); assert.strictEqual(q.maxHp, 8);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'shield', value: true }), null); assert.ok(q.shield);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'move', id: q.id, r: 2, c: 2 }), null); assert.ok(at(g, 2, 2));
+  const king = Object.values(g.pieces).find((p) => p.role === 're' && p.color === 'b');
+  assert.ok(G.sandboxEdit(g, { op: 'remove', r: king.r, c: king.c }), 'il Re non si toglie');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 3, c: 3, color: 'b', role: 're' }), null); assert.strictEqual(king.r, 3);
+  assert.ok(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'type', value: 'nope' }), 'tipo inesistente');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'remove', r: 2, c: 2 }), null); assert.ok(!g.pieces[q.id]);
+});
+t('campo di prova: gli strumenti non si consumano e il cimitero serve al Revitalizzante', () => {
+  const g = G.sandboxGame('empty');
+  G.sandboxEdit(g, { op: 'put', r: 6, c: 0, color: 'w', role: 'pedone', type: 'erba' });
+  G.sandboxEdit(g, { op: 'put', r: 3, c: 0, color: 'b', role: 'pedone', type: 'fuoco' });
+  const p = at(g, 6, 0); p.hp = 1;
+  assert.strictEqual(G.useItem(g, 'w', { item: 'pozione', id: p.id }), null);
+  assert.ok(g.items.w.includes('pozione'), 'lo strumento resta');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'kill', r: 3, c: 0 }), null); assert.strictEqual(g.graveyard.b.length, 1);
+  g.turn = 'b';
+  assert.strictEqual(G.useItem(g, 'b', { item: 'revitalizzante', id: g.graveyard.b[0], r: 1, c: 1 }), null);
+});
+t('campo di prova: dopo una modifica il matto sparisce e si può rigiocare', () => {
+  const g = G.sandboxGame('empty'); g.phase = 'over'; g.winner = 'w'; g.reason = 'x';
+  assert.strictEqual(G.sandboxEdit(g, { op: 'turn', color: 'b' }), null);
+  assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.winner, null); assert.strictEqual(g.turn, 'b');
+  assert.ok(G.sandboxEdit(G.newGame(), { op: 'turn', color: 'w' }), 'fuori dal campo di prova non funziona');
+});
+
+console.log('Campo di prova');
+t('campo di prova: parte con la posizione iniziale e tutti gli strumenti, scacchiera vuota = solo i Re', () => {
+  const g = G.sandboxGame('start');
+  assert.strictEqual(Object.values(g.pieces).filter((p) => p.alive).length, 32);
+  assert.strictEqual(g.items.w.length, S.ITEM_IDS.length);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'reset', preset: 'empty' }), null);
+  assert.deepStrictEqual(Object.values(g.pieces).map((p) => p.role), ['re', 're']);
+  assert.ok(g.sandbox && g.phase === 'play');
+});
+t('campo di prova: put, set, move, kill, remove e strumenti', () => {
+  const g = G.sandboxGame('empty');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 3, c: 3, color: 'w', role: 'regina', type: 'fuoco' }), null);
+  const q = at(g, 3, 3); assert.strictEqual(q.type, 'fuoco'); assert.strictEqual(q.hp, 10);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 3, c: 4, color: 'b', role: 'pedone', type: 'erba' }), null);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'hp', value: 4 }), null); assert.strictEqual(q.hp, 4);
+  assert.ok(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'hp', value: 0 }), 'HP non validi');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'shield', value: true }), null); assert.ok(q.shield);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'move', id: q.id, r: 4, c: 3 }), null); assert.strictEqual(q.r, 4);
+  assert.ok(G.sandboxEdit(g, { op: 'put', r: 4, c: 3, color: 'b', role: 'pedone' }) === null, 'un pezzo ne sostituisce un altro');
+  const re = Object.values(g.pieces).find((p) => p.role === 're' && p.color === 'w');
+  assert.ok(G.sandboxEdit(g, { op: 'remove', r: re.r, c: re.c }), 'i Re non si tolgono');
+  assert.strictEqual(G.sandboxEdit(g, { op: 'kill', r: 3, c: 4 }), null);
+  assert.strictEqual(g.graveyard.b.length, 1);
+  assert.strictEqual(G.sandboxEdit(g, { op: 'items', color: 'w', list: ['bomba', 'bomba', 'cristallo'] }), null);
+  assert.deepStrictEqual(g.items.w, ['cristallo', 'bomba']);
+  assert.ok(G.sandboxEdit(g, { op: 'items', color: 'w', list: ['inesistente'] }));
+  assert.strictEqual(G.sandboxEdit(g, { op: 'turn', color: 'b' }), null); assert.strictEqual(g.turn, 'b');
+});
+t('campo di prova: si gioca la posizione costruita (danni e tipi come nel gioco)', () => {
+  const g = G.sandboxGame('empty');
+  const re = Object.values(g.pieces).filter((p) => p.role === 're');
+  G.sandboxEdit(g, { op: 'put', r: 5, c: 4, color: 'w', role: 'cavallo', type: 'fuoco' });
+  G.sandboxEdit(g, { op: 'put', r: 3, c: 3, color: 'b', role: 'torre', type: 'erba' });
+  const n = at(g, 5, 4), tr = at(g, 3, 3);
+  assert.strictEqual(G.move(g, 'w', n.id, 3, 3), null);
+  assert.strictEqual(tr.hp, 8 - 8, 'fuoco su erba ×2: 4×2 = 8 uccide la Torre da 8 HP');
+  assert.ok(!tr.alive && re.length === 2);
 });
 
 console.log(`\n${passed} test passati`);

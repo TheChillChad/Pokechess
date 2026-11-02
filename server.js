@@ -140,6 +140,27 @@ io.on('connection', (socket) => {
     broadcast(room);
   });
 
+  // campo di prova: posizioni libere da modificare, si gioca da un solo dispositivo
+  socket.on('createSandbox', (data, cb) => {
+    cb = typeof cb === 'function' ? cb : () => {};
+    if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
+    const room = { code: newCode(), game: G.sandboxGame('start'), players: { w: null, b: null }, touched: Date.now(), local: true, sandbox: true };
+    rooms.set(room.code, room);
+    seat(room, socket, 'w', data.token, cleanName(data.name));
+    room.players.b = { token: data.token, sid: null, local: true };
+    cb({ ok: true, code: room.code });
+    broadcast(room);
+  });
+  socket.on('sb', (d) => {
+    const room = rooms.get(socket.data.code);
+    if (!room || !room.sandbox || socket.data.spectator || !socket.data.color || !d) return;
+    const snap = structuredClone(room.game); // si può annullare anche una modifica
+    const err = G.sandboxEdit(room.game, d);
+    if (err) socket.emit('errore', err);
+    else { (room.snaps = room.snaps || []).push(snap); if (room.snaps.length > 60) room.snaps.shift(); }
+    broadcast(room);
+  });
+
   socket.on('join', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token) || !validCode(data.code)) return cb({ error: 'Codice non valido' });
@@ -199,6 +220,7 @@ io.on('connection', (socket) => {
   socket.on('promote', (d) => d && act((g, c) => G.choosePromotion(g, c, d.role)));
   socket.on('resign', () => act((g, c) => G.resign(g, c)));
   socket.on('rematch', () => act((g, c, room) => {
+    if (room.sandbox) return 'Nel campo di prova usa "Posizione iniziale"';
     if (g.phase !== 'over') return 'La partita non è finita';
     room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;

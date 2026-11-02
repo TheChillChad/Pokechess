@@ -553,7 +553,7 @@ function choosePromotion(g, color, role) {
   if (role !== 'cavallo') {
     const i = g.items[color].indexOf('pietra');
     if (i < 0) return 'Ti serve una Pietra Evolutiva';
-    g.items[color].splice(i, 1);
+    if (!g.sandbox) g.items[color].splice(i, 1);
   }
   promote(g, p, role);
   g.pending = null;
@@ -582,7 +582,7 @@ function useItem(g, color, a) {
     return inCheck(g, color) ? 'Sei sotto scacco: questo strumento non lo risolve' : 'Il tuo Re finirebbe sotto scacco';
   }
   applyItem(g, color, a);
-  g.items[color].splice(idx, 1);
+  if (!g.sandbox) g.items[color].splice(idx, 1); // nel campo di prova gli strumenti sono illimitati
   if (!free) endTurn(g);
   return null;
 }
@@ -604,6 +604,108 @@ function actingColor(g) {
   return g.turn;
 }
 
+// ---------- campo di prova ----------
+// Posizione libera da modificare a piacere; si può giocare (un solo dispositivo) e tornare a modificare.
+function sandboxGame(preset) {
+  const g = newGame();
+  g.sandbox = true; g.phase = 'play'; g.picks = 30; g.turn = 'w';
+  g.itemsReady = { w: true, b: true };
+  g.items = { w: S.ITEM_IDS.slice(), b: S.ITEM_IDS.slice() };
+  let i = 0;
+  for (const color of ['w', 'b']) {
+    i = 0;
+    for (const p of Object.values(g.pieces)) {
+      if (p.color !== color || p.role === 're') continue;
+      if (preset === 'empty') delete g.pieces[p.id];
+      else p.type = S.TYPES[Math.floor(i++ / 2) % 8];
+    }
+  }
+  log(g, preset === 'empty' ? 'Campo di prova: scacchiera vuota (solo i Re).' : 'Campo di prova: posizione iniziale.');
+  return g;
+}
+const isHome = (role, color, r, c) => r === (color === 'w' ? 7 : 0) && BACK_RANK[c] === role;
+function sandboxEdit(g, a) {
+  if (!g.sandbox || !a) return 'Non sei nel campo di prova';
+  const sq = () => inb(a.r, a.c);
+  const pieceAtSq = () => grid(g)[a.r][a.c];
+  const piece = () => { const p = g.pieces[a.id]; return p && p.alive ? p : null; };
+  switch (a.op) {
+    case 'reset': {
+      const fresh = sandboxGame(a.preset === 'empty' ? 'empty' : 'start');
+      for (const k of Object.keys(g)) delete g[k];
+      Object.assign(g, fresh);
+      return null;
+    }
+    case 'put': {
+      if (!sq()) return 'Casella non valida';
+      if (!['w', 'b'].includes(a.color)) return 'Colore non valido';
+      if (!S.ROLES[a.role]) return 'Pezzo non valido';
+      const type = a.type || null;
+      if (type && !S.TYPES.includes(type)) return 'Tipo non valido';
+      const cur = pieceAtSq();
+      if (a.role === 're') { // c'è un solo Re per colore: si sposta
+        const k = Object.values(g.pieces).find((p) => p.role === 're' && p.color === a.color);
+        if (cur && cur !== k) return 'La casella è occupata';
+        k.r = a.r; k.c = a.c; k.hasMoved = !isHome('re', a.color, a.r, a.c);
+        break;
+      }
+      if (cur && cur.role === 're') return 'Su quella casella c\'è un Re: spostalo prima';
+      if (cur) delete g.pieces[cur.id];
+      let n = 100; while (g.pieces['x' + n]) n++;
+      const p = mkPiece('x' + n, a.color, a.role, a.r, a.c);
+      p.type = type; p.hasMoved = !isHome(a.role, a.color, a.r, a.c);
+      g.pieces[p.id] = p;
+      break;
+    }
+    case 'remove': case 'kill': {
+      if (!sq()) return 'Casella non valida';
+      const p = pieceAtSq();
+      if (!p) return 'Nessun pezzo qui';
+      if (p.role === 're') return 'I Re non si tolgono (spostali)';
+      if (a.op === 'kill') { p.alive = false; g.graveyard[p.color].push(p.id); }
+      else { delete g.pieces[p.id]; for (const c of ['w', 'b']) g.graveyard[c] = g.graveyard[c].filter((x) => x !== p.id); }
+      break;
+    }
+    case 'move': {
+      const p = piece();
+      if (!p || !sq()) return 'Mossa non valida';
+      const cur = pieceAtSq();
+      if (cur && cur !== p) return 'La casella è occupata';
+      p.r = a.r; p.c = a.c; p.hasMoved = !(isHome(p.role, p.color, p.r, p.c));
+      break;
+    }
+    case 'set': {
+      const p = piece();
+      if (!p) return 'Pezzo non valido';
+      const v = a.value;
+      switch (a.field) {
+        case 'type': if (p.role === 're') return 'Il Re non ha tipo'; if (v !== null && !S.TYPES.includes(v)) return 'Tipo non valido'; p.type = v; break;
+        case 'hp': if (p.role === 're') return 'Il Re non ha HP'; if (!Number.isInteger(v) || v < 1) return 'HP non validi'; p.hp = Math.min(v, p.maxHp); break;
+        case 'maxHp': if (p.role === 're') return 'Il Re non ha HP'; if (!Number.isInteger(v) || v < 1 || v > 40) return 'HP massimi non validi'; p.maxHp = v; p.hp = Math.min(p.hp, v); break;
+        case 'role': {
+          if (p.role === 're' || !S.ROLES[v] || v === 're') return 'Pezzo non valido';
+          const st = S.ROLES[v]; p.role = v; p.maxHp = p.hp = st.hp; p.atk = st.atk; break;
+        }
+        case 'color': if (p.role === 're') return 'Il Re non cambia squadra'; if (!['w', 'b'].includes(v)) return 'Colore non valido'; p.color = v; break;
+        case 'shield': case 'boost': case 'frozen': if (typeof v !== 'boolean') return 'Valore non valido'; p[a.field] = v; break;
+        case 'rage': case 'guard': if (!Number.isInteger(v) || v < 0 || v > 9) return 'Valore non valido'; p[a.field] = v; break;
+        default: return 'Campo sconosciuto';
+      }
+      break;
+    }
+    case 'items': {
+      if (!['w', 'b'].includes(a.color) || !Array.isArray(a.list) || !a.list.every((i) => S.ITEM_IDS.includes(i))) return 'Strumenti non validi';
+      g.items[a.color] = S.ITEM_IDS.filter((i) => a.list.includes(i));
+      break;
+    }
+    case 'turn': if (!['w', 'b'].includes(a.color)) return 'Colore non valido'; g.turn = a.color; break;
+    default: return 'Operazione sconosciuta';
+  }
+  // dopo una modifica la partita riprende da capo: niente promozioni in sospeso, matto o patta cancellati
+  g.phase = 'play'; g.winner = null; g.reason = null; g.pending = null; g.shieldLock = null; g.freeUsed = false; g.event = null; g.lastMove = null;
+  return null;
+}
+
 function publicState(room, color) {
   const g = room.game;
   const opp = other(color);
@@ -618,6 +720,7 @@ function publicState(room, color) {
     connected: { w: !!(room.players.w && (room.players.w.sid || room.players.w.bot || room.players.w.local)), b: !!(room.players.b && (room.players.b.sid || room.players.b.bot || room.players.b.local)) },
     bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
     local: !!room.local,
+    sandbox: !!g.sandbox,
     mods: g.mods,
     lucky: g.lucky && g.mods.lucky ? { vis: g.mods.lucky.vis, sq: g.lucky.sq && g.mods.lucky.vis !== 'hidden' ? { r: g.lucky.sq.r, c: g.lucky.sq.c, bonus: g.mods.lucky.vis === 'full' ? g.lucky.sq.bonus : null } : null } : null,
     spectators: room.spectators ? room.spectators.size : 0,
@@ -647,5 +750,5 @@ function publicState(room, color) {
 module.exports = {
   newGame, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
-  actingColor, simClone, sameShade, applyMoveCore, applyItem, // usate dal bot per simulare
+  actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };

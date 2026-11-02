@@ -25,6 +25,8 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 - **Strumenti** (3 a testa, anche doppioni: Scudo, Paralisi e Revitalizzante al massimo 1 nel kit, Cambio al massimo 2; ognuno si usa una volta): Pozione (+5 HP), Revitalizzante (riporta in campo un pezzo sconfitto), **Scudo** (azione gratuita: un pezzo ignora il prossimo attacco, poi muovi un altro pezzo; quello protetto non muove in quel turno), Cristallo (prossimo attacco ×1,5), Cambio (scambia due tuoi pezzi), **Paralisi** (azione gratuita: un pezzo avversario non può muovere né attaccare al suo prossimo turno e non dà scacco; poi muovi un pezzo), **Metamorfosi** (cambia il tipo di un tuo pezzo), **Bomba** (3 danni fissi a un pezzo avversario), Pietra Evolutiva (passiva: alla promozione scegli il pezzo; senza Pietra il pedone diventa Cavallo). Tutti costano il turno tranne Scudo e Paralisi (azioni gratuite, una sola per turno).
 - Dopo la partita c'è la rivincita, con i colori scambiati.
 
+- **Campo di prova** (home → 🧪): scacchiera libera per costruire posizioni (pezzi, tipi, HP, effetti, strumenti, turno) e provarle giocando entrambi i lati da un solo dispositivo; con «Annulla» si torna indietro anche sulle modifiche.
+
 ## Dove si cambiano le cose
 
 | Cosa | File |
