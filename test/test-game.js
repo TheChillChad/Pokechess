@@ -422,7 +422,11 @@ t('draft a serpentina: B R R B B R R B … e l\'ultima scelta è del Rosso', () 
 t('scelta strumenti: 3 a testa, la partita parte quando entrambi hanno scelto', () => {
   const g = G.newGame(); g.phase = 'items';
   assert.ok(G.setItems(g, 'w', ['scudo', 'scudo']));
-  assert.strictEqual(G.setItems(g, 'w', ['scudo', 'scudo', 'pietra']), null);
+  assert.ok(G.setItems(g, 'w', ['scudo', 'scudo', 'pietra']), 'Scudo al massimo 1');
+  assert.ok(G.setItems(g, 'w', ['paralisi', 'paralisi', 'bomba']), 'Paralisi al massimo 1');
+  assert.ok(G.setItems(g, 'w', ['revitalizzante', 'revitalizzante', 'bomba']), 'Revitalizzante al massimo 1');
+  assert.ok(G.setItems(g, 'w', ['cambio', 'cambio', 'cambio']), 'Cambio al massimo 2');
+  assert.strictEqual(G.setItems(g, 'w', ['bomba', 'bomba', 'bomba']), null, 'Bomba fino a 3');
   assert.strictEqual(g.phase, 'items');
   assert.strictEqual(G.setItems(g, 'b', ['pozione', 'cambio', 'cristallo']), null);
   assert.strictEqual(g.phase, 'play');

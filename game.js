@@ -260,6 +260,9 @@ function setItems(g, color, list) {
   if (!Array.isArray(list) || list.length !== S.KIT_SIZE || !list.every((i) => S.ITEM_IDS.includes(i))) {
     return `Scegli esattamente ${S.KIT_SIZE} strumenti`;
   }
+  for (const id of S.ITEM_IDS) {
+    if (list.filter((i) => i === id).length > S.itemMax(id)) return `${S.ITEMS[id].label}: al massimo ${S.itemMax(id)} nel kit`;
+  }
   g.items[color] = list.slice();
   g.itemsReady[color] = true;
   if (g.itemsReady.w && g.itemsReady.b) {

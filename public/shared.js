@@ -46,21 +46,24 @@
 
   const ITEMS = {
     pozione: { icon: '🧪', label: 'Pozione', active: true, desc: '+5 HP a un tuo pezzo ferito.' },
-    revitalizzante: { icon: '✨', label: 'Revitalizzante', active: true, desc: 'Riporta in campo un tuo pezzo sconfitto con metà HP, nelle tue prime due file.' },
-    scudo: { icon: '🛡️', label: 'Scudo', active: true, free: true, desc: 'Un tuo pezzo ignora il prossimo attacco. Non costa il turno: poi muovi un altro pezzo (quello con lo Scudo no). Una sola azione gratuita per turno.' },
+    revitalizzante: { icon: '✨', label: 'Revitalizzante', max: 1, active: true, desc: 'Riporta in campo un tuo pezzo sconfitto con metà HP, nelle tue prime due file.' },
+    scudo: { icon: '🛡️', label: 'Scudo', max: 1, active: true, free: true, desc: 'Un tuo pezzo ignora il prossimo attacco. Non costa il turno: poi muovi un altro pezzo (quello con lo Scudo no). Una sola azione gratuita per turno.' },
     cristallo: { icon: '🔮', label: 'Cristallo', active: true, desc: 'Il prossimo attacco di un tuo pezzo fa ×1,5 di danno.' },
-    cambio: { icon: '🔁', label: 'Cambio', active: true, desc: 'Scambia di posto due tuoi pezzi.' },
-    paralisi: { icon: '⚡', label: 'Paralisi', active: true, free: true, desc: 'Un pezzo avversario (non il Re) non può muoversi né attaccare al suo prossimo turno. Non costa il turno: poi muovi un pezzo.' },
+    cambio: { icon: '🔁', label: 'Cambio', max: 2, active: true, desc: 'Scambia di posto due tuoi pezzi.' },
+    paralisi: { icon: '⚡', label: 'Paralisi', max: 1, active: true, free: true, desc: 'Un pezzo avversario (non il Re) non può muoversi né attaccare al suo prossimo turno. Non costa il turno: poi muovi un pezzo.' },
     metamorfosi: { icon: '🦋', label: 'Metamorfosi', active: true, desc: 'Cambia il tipo di un tuo pezzo (non il Re) con un tipo a scelta.' },
     bomba: { icon: '💣', label: 'Bomba', active: true, desc: 'Infligge 3 danni fissi (senza tipi) a un pezzo avversario, anche lontano. Il Re non si può colpire.' },
     pietra: { icon: '💎', label: 'Pietra Evolutiva', active: false, desc: 'Si usa da sola: quando un tuo pedone arriva in fondo scegli Regina, Torre, Alfiere o Cavallo. Senza Pietra diventa Cavallo.' },
   };
   const ITEM_IDS = ['pozione', 'revitalizzante', 'scudo', 'cristallo', 'cambio', 'paralisi', 'metamorfosi', 'bomba', 'pietra'];
 
+  // quante copie dello stesso strumento si possono mettere nel kit (default: tutte e 3)
+  const itemMax = (id) => (ITEMS[id] && ITEMS[id].max) || KIT_SIZE;
+
   const TEAM = { w: 'Blu', b: 'Rosso' };
   const MAX_PER_TYPE = 2;
   const KIT_SIZE = 3;
-  const DRAFT_PICKS = 30; // 15 pezzi a testa (il Re non ha tipo)
+    const DRAFT_PICKS = 30; // 15 pezzi a testa (il Re non ha tipo)
 
   // Ordine del draft a serpentina: Blu, Rosso, Rosso, Blu, Blu, Rosso, Rosso, Blu…
   // (i = numero di scelte già fatte). L'ultima scelta, la 30ª, è del Rosso, che muove per secondo.
@@ -74,5 +77,5 @@
     return 1;
   }
 
-  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult };
+  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax };
 });

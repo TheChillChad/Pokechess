@@ -401,11 +401,11 @@
     }).join('');
     const cards = Sh.ITEM_IDS.map((i) => {
       const n = ui.picks.filter((x) => x === i).length;
-      return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= Sh.KIT_SIZE ? 'disabled' : ''}>
-        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b><span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
+      return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= Sh.KIT_SIZE || n >= Sh.itemMax(i) ? 'disabled' : ''}>
+        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b>${Sh.itemMax(i) < Sh.KIT_SIZE ? ` <small class="mute">(max ${Sh.itemMax(i)})</small>` : ''}<span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
     }).join('');
     return `<div class="box"><h3>Scegli 3 strumenti</h3>
-      <p class="mute">Puoi prendere anche lo stesso più volte. Usarne uno costa il turno. Clicca uno slot per toglierlo.</p>
+      <p class="mute">Puoi prendere lo stesso strumento più volte, salvo i limiti indicati. Usarne uno costa il turno. Clicca uno slot per toglierlo.</p>
       <div class="slots">${slots}</div>
       <div class="itemgrid">${cards}</div>
       <div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="confirmItems" ${ui.picks.length === Sh.KIT_SIZE ? '' : 'disabled'}>Conferma</button></div></div>`;
@@ -553,7 +553,7 @@
       case 'type':
         if (ui.draftPiece) { socket.emit('draft', { id: ui.draftPiece, type: d.type }); ui.draftPiece = null; }
         break;
-      case 'pick': if (ui.picks.length < Sh.KIT_SIZE) { ui.picks.push(d.item); render(); } break;
+      case 'pick': if (ui.picks.length < Sh.KIT_SIZE && ui.picks.filter((x) => x === d.item).length < Sh.itemMax(d.item)) { ui.picks.push(d.item); render(); } break;
       case 'unpick': ui.picks.splice(+d.i, 1); render(); break;
       case 'confirmItems': socket.emit('items', { list: ui.picks }); break;
       case 'useItem': ui.item = ui.item && ui.item.name === d.item ? null : { name: d.item }; ui.sel = null; render(); break;
