@@ -72,9 +72,9 @@ console.log('Combattimento a HP');
 t('se il bersaglio sopravvive, l\'attaccante resta fermo', () => {
   const g = startedGame(); clear(g);
   place(g, 'w0', 4, 0, { type: 'acqua' });   // torre, atk 5
-  place(g, 'b0', 4, 3, { type: 'acqua' });   // torre, 10 HP
+  place(g, 'b0', 4, 3, { type: 'acqua' });   // torre, 8 HP
   assert.strictEqual(G.move(g, 'w', 'w0', 4, 3), null);
-  assert.strictEqual(g.pieces.b0.hp, 7); // acqua vs acqua = ×0,5 → 5×0,5 = 2,5 → 3 danni → 10−3
+  assert.strictEqual(g.pieces.b0.hp, 5); // acqua vs acqua = ×0,5 → 5×0,5 = 2,5 → 3 danni → 8−3
   assert.strictEqual(g.pieces.b0.alive, true);
   assert.strictEqual(g.pieces.w0.c, 0);
   assert.strictEqual(g.turn, 'b');
@@ -193,7 +193,7 @@ t('il Re non può muovere su una casella attaccata', () => {
 });
 t('un attacco che non uccide chi dà scacco non risolve lo scacco', () => {
   const g = startedGame(); clear(g);
-  place(g, 'w0', 0, 0, { type: 'fuoco' });                 // torre bianca che dà scacco, 10 HP
+  place(g, 'w0', 0, 0, { type: 'fuoco' });                 // torre bianca che dà scacco, 8 HP
   place(g, 'b3', 2, 0, { type: 'erba', atk: 1 });          // regina nera che potrebbe colpirla ma fa pochi danni
   g.pieces.b3.role = 'regina';
   g.turn = 'b';
@@ -212,7 +212,7 @@ t('scacco matto: partita finita e vincitore', () => {
 t('stallo: patta', () => {
   const g = startedGame(); clear(g);
   g.pieces.b4.r = 0; g.pieces.b4.c = 0;     // Re nero in angolo
-  place(g, 'w3', 3, 1, { role: 'regina', hp: 12, maxHp: 12, atk: 7 });
+  place(g, 'w3', 3, 1, { role: 'regina', hp: 10, maxHp: 10, atk: 6 });
   assert.strictEqual(G.move(g, 'w', 'w3', 2, 1), null); // la Regina toglie ogni casella al Re, senza dare scacco
   assert.strictEqual(g.phase, 'over');
   assert.strictEqual(g.winner, null);
@@ -250,7 +250,7 @@ t('Scudo blocca un attacco e si consuma', () => {
   place(g, 'w0', 4, 0, { type: 'fuoco' });
   place(g, 'b0', 4, 3, { type: 'erba', shield: true });
   assert.strictEqual(G.move(g, 'w', 'w0', 4, 3), null);
-  assert.strictEqual(g.pieces.b0.hp, 10);
+  assert.strictEqual(g.pieces.b0.hp, 8);
   assert.strictEqual(g.pieces.b0.shield, false);
 });
 t('Cristallo moltiplica ×1,5 una volta sola', () => {
@@ -276,7 +276,7 @@ t('Revitalizzante riporta un pezzo con metà HP nelle prime due file', () => {
   assert.ok(G.useItem(g, 'w', { item: 'revitalizzante', id: 'w3', r: 7, c: 4 }), 'casella occupata dal Re');
   g.pieces.w2.alive = false; // libera c2 sulla riga 7
   assert.strictEqual(G.useItem(g, 'w', { item: 'revitalizzante', id: 'w3', r: 7, c: 2 }), null);
-  assert.strictEqual(g.pieces.w3.hp, 6);
+  assert.strictEqual(g.pieces.w3.hp, 5);
   assert.deepStrictEqual(g.graveyard.w, []);
 });
 
@@ -336,7 +336,7 @@ t('un pezzo paralizzato non dà scacco', () => {
 t('Bomba: 3 danni fissi senza tipi, bloccata dallo Scudo, il Re non si bersaglia', () => {
   const g = startedGame(['bomba', 'bomba', 'bomba']);
   assert.strictEqual(G.useItem(g, 'w', { item: 'bomba', id: 'b0' }), null);
-  assert.strictEqual(g.pieces.b0.hp, 7);
+  assert.strictEqual(g.pieces.b0.hp, 5);
   assert.strictEqual(g.turn, 'b');
   g.turn = 'w'; g.pieces.b1.shield = true;
   assert.strictEqual(G.useItem(g, 'w', { item: 'bomba', id: 'b1' }), null);
@@ -381,7 +381,7 @@ t('con Pietra si sceglie il ruolo e la Pietra si consuma', () => {
   assert.ok(g.pending);
   assert.strictEqual(G.choosePromotion(g, 'w', 'regina'), null);
   assert.strictEqual(g.pieces.w8.role, 'regina');
-  assert.strictEqual(g.pieces.w8.maxHp, 12);
+  assert.strictEqual(g.pieces.w8.maxHp, 10);
   assert.ok(!g.items.w.includes('pietra'));
   assert.strictEqual(g.turn, 'b');
 });

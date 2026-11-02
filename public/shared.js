@@ -39,8 +39,8 @@
     pedone: { label: 'Pedone', hp: 4, atk: 2 },
     cavallo: { label: 'Cavallo', hp: 7, atk: 4 },
     alfiere: { label: 'Alfiere', hp: 7, atk: 4 },
-    torre: { label: 'Torre', hp: 10, atk: 5 },
-    regina: { label: 'Regina', hp: 12, atk: 7 },
+    torre: { label: 'Torre', hp: 8, atk: 5 },
+    regina: { label: 'Regina', hp: 10, atk: 6 },
     re: { label: 'Re', hp: null, atk: 0 }, // il Re non ha HP, non si può colpire (si perde per scacco matto) ed elimina in un colpo qualsiasi pezzo
   };
 
