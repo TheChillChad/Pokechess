@@ -8,13 +8,14 @@ const LUCK = 1.2; // quanto vale per il bot prendere una casella fortunata
 const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
-// valutazione dal punto di vista di `me`: materiale pesato dagli HP rimasti
+// valutazione dal punto di vista di `me`: materiale pesato dagli HP rimasti, più un piccolo premio per i pedoni avanzati
 function ev(g, me) {
   if (g.phase === 'over') return g.winner === me ? 1000 : g.winner === null ? 0 : -1000;
   let v = 0;
   for (const p of Object.values(g.pieces)) {
     if (!p.alive || p.role === 're') continue;
-    const x = VAL[p.role] * (0.4 + 0.6 * p.hp / p.maxHp);
+    let x = VAL[p.role] * (0.4 + 0.6 * p.hp / p.maxHp);
+    if (p.role === 'pedone') { const adv = p.color === 'w' ? 6 - p.r : p.r - 1; x += 0.04 * adv + (adv >= 4 ? 0.15 * (adv - 3) : 0); }
     v += p.color === me ? x : -x;
   }
   return v;
@@ -37,31 +38,39 @@ function endSim(sim, color) {
   sim.turn = G.other(color);
 }
 
-// Ricerca a profondità limitata (minimax con potatura alfa-beta) dal punto di vista di `me`.
-// `toMove` è chi muove nel nodo; a profondità 0 si valuta la posizione. Scade con il tempo (deadline).
-let DEADLINE = Infinity;
-const TIMEOUT = new Error('timeout');
-function search(sim, me, toMove, depth, alpha, beta) {
-  if (Date.now() > DEADLINE) throw TIMEOUT;
+// Ordine delle mosse: prima quelle che sconfiggono o ferirebbero di più (più potature = ricerca più profonda)
+function ordered(sim, toMove, lm, onlyAttacks) {
+  const gr = G.grid(sim);
+  const moves = [];
+  for (const id of Object.keys(lm)) for (const m of lm[id]) {
+    if (m.kind !== 'attack') { if (!onlyAttacks) moves.push({ id, m, k: m.kind === 'castle' ? 0.5 : 0 }); continue; }
+    const t = gr[m.r][m.c];
+    if (m.shield) { if (!onlyAttacks) moves.push({ id, m, k: 0.1 }); continue; }
+    const frac = Math.min(1, (m.dmg || 0) / t.hp);
+    moves.push({ id, m, k: 1 + VAL[t.role] * (m.kill ? 1 : frac * 0.6) - VAL[sim.pieces[id].role] * 0.02 });
+  }
+  return moves.sort((x, y) => y.k - x.k);
+}
+
+// Ricerca a fine percorso: si continua solo con gli attacchi, così il bot non si ferma "a metà scambio"
+// (altrimenti vedrebbe un colpo e non la risposta). Dà anche matto e stallo senza altro lavoro.
+let QS = true;
+const QDEPTH = 3;
+function quiesce(sim, me, toMove, alpha, beta, qd, ply) {
   if (sim.phase === 'over') return ev(sim, me);
   const lm = G.legalMoves(sim, toMove);
-  const ids = Object.keys(lm);
-  if (!ids.length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 : 1000) : 0; // matto o stallo
+  if (!Object.keys(lm).length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 + ply : 1000 - ply) : 0;
+  const stand = ev(sim, me);
+  if (!QS || qd <= 0) return stand;
   const maximizing = toMove === me;
-  const moves = [];
-  for (const id of ids) for (const m of lm[id]) moves.push({ id, m });
-  moves.sort((x, y) => (y.m.kind === 'attack') - (x.m.kind === 'attack')); // prima le catture: più potature
-  let best = maximizing ? -Infinity : Infinity;
-  for (const { id, m } of moves) {
+  let best = stand;
+  if (maximizing) { if (best >= beta) return best; if (best > alpha) alpha = best; }
+  else { if (best <= alpha) return best; if (best < beta) beta = best; }
+  for (const { id, m } of ordered(sim, toMove, lm, true)) {
     const s2 = G.simClone(sim);
     play(s2, toMove, id, m.r, m.c);
     endSim(s2, toMove);
-    let v;
-    if (depth <= 1) {
-      v = ev(s2, me);
-      // dopo una mossa che dà scacco controlliamo subito se è matto
-      if (G.inCheck(s2, G.other(toMove)) && Object.keys(G.legalMoves(s2, G.other(toMove))).length === 0) v = maximizing ? 1000 : -1000;
-    } else v = search(s2, me, G.other(toMove), depth - 1, alpha, beta);
+    const v = quiesce(s2, me, G.other(toMove), alpha, beta, qd - 1, ply + 1);
     if (maximizing) { if (v > best) best = v; if (best > alpha) alpha = best; }
     else { if (v < best) best = v; if (best < beta) beta = best; }
     if (beta <= alpha) break;
@@ -69,12 +78,36 @@ function search(sim, me, toMove, depth, alpha, beta) {
   return best;
 }
 
-// livelli: profondità massima (mezze mosse dopo la nostra) e tempo a disposizione
+// Ricerca a profondità limitata (minimax con potatura alfa-beta) dal punto di vista di `me`.
+// `toMove` è chi muove nel nodo; a profondità 0 si passa alla ricerca a fine percorso. Scade con il tempo (deadline).
+let DEADLINE = Infinity;
+const TIMEOUT = new Error('timeout');
+function search(sim, me, toMove, depth, alpha, beta, ply) {
+  if (Date.now() > DEADLINE) throw TIMEOUT;
+  if (sim.phase === 'over') return ev(sim, me);
+  if (depth <= 0) return quiesce(sim, me, toMove, alpha, beta, QDEPTH, ply);
+  const lm = G.legalMoves(sim, toMove);
+  if (!Object.keys(lm).length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 + ply : 1000 - ply) : 0; // matto o stallo
+  const maximizing = toMove === me;
+  let best = maximizing ? -Infinity : Infinity;
+  for (const { id, m } of ordered(sim, toMove, lm, false)) {
+    const s2 = G.simClone(sim);
+    play(s2, toMove, id, m.r, m.c);
+    endSim(s2, toMove);
+    const v = search(s2, me, G.other(toMove), depth - 1, alpha, beta, ply + 1);
+    if (maximizing) { if (v > best) best = v; if (best > alpha) alpha = best; }
+    else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (beta <= alpha) break;
+  }
+  return best;
+}
+
+// livelli: profondità massima (mezze mosse dopo la nostra), tempo a disposizione e ricerca a fine percorso
 const LEVELS = {
-  easy: { depth: 0, ms: 0 },
-  normal: { depth: 1, ms: 0 },
-  hard: { depth: 2, ms: 1500 },
-  master: { depth: 3, ms: 3500 },
+  easy: { depth: 0, ms: 0, qs: false },
+  normal: { depth: 1, ms: 0, qs: false },
+  hard: { depth: 3, ms: 1500, qs: true },
+  master: { depth: 8, ms: 3500, qs: true },
 };
 
 // Dà un punteggio a tutte le mosse candidate. Approfondimento iterativo: si completa un livello per TUTTE
@@ -82,13 +115,15 @@ const LEVELS = {
 function scoreAll(entries, me, level) {
   const L = LEVELS[level] || LEVELS.normal;
   const opp = G.other(me);
+  QS = L.qs;
   DEADLINE = Infinity;
-  const run = (d) => entries.map((e) => search(e.sim, me, opp, d, -Infinity, Infinity));
+  const run = (d) => entries.map((e) => search(e.sim, me, opp, d, -Infinity, Infinity, 1));
   let scores = run(1); // il primo livello si completa sempre
   const t0 = Date.now(); DEADLINE = t0 + L.ms;
   for (let d = 2; d <= L.depth; d++) {
     try { scores = run(d); } catch (e) { if (e !== TIMEOUT) throw e; break; }
   }
+  DEADLINE = Infinity;
   entries.forEach((e, i) => { e.c.score = scores[i] - e.cost + Math.random() * 0.05; });
 }
 
