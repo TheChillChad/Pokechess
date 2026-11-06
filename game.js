@@ -125,16 +125,37 @@ function movesFor(p, gr) {
 }
 
 // ---------- scacco ----------
+// Una casella (r,c) è minacciata da `color` se un suo pezzo (non paralizzato) potrebbe attaccarla.
+// Lavora direttamente sulla griglia, senza costruire liste di mosse: è il cuore della velocità del bot.
+function threatened(gr, r, c, color) {
+  const enemy = (t, role) => t && t.color === color && !t.frozen && t.role === role;
+  for (const [dr, dc] of KNIGHT) { const rr = r + dr, cc = c + dc; if (inb(rr, cc) && enemy(gr[rr][cc], 'cavallo')) return true; }
+  for (const [dr, dc] of KING) { const rr = r + dr, cc = c + dc; if (inb(rr, cc) && enemy(gr[rr][cc], 're')) return true; }
+  const pr = r + (color === 'w' ? 1 : -1); // un pedone di `color` attacca in avanti, quindi sta "dietro" la casella
+  for (const dc of [-1, 1]) if (inb(pr, c + dc) && enemy(gr[pr][c + dc], 'pedone')) return true;
+  for (const [dr, dc] of DIAG) {
+    let rr = r + dr, cc = c + dc;
+    while (inb(rr, cc)) {
+      const t = gr[rr][cc];
+      if (t) { if (t.color === color && !t.frozen && (t.role === 'alfiere' || t.role === 'regina')) return true; break; }
+      rr += dr; cc += dc;
+    }
+  }
+  for (const [dr, dc] of ORTH) {
+    let rr = r + dr, cc = c + dc;
+    while (inb(rr, cc)) {
+      const t = gr[rr][cc];
+      if (t) { if (t.color === color && !t.frozen && (t.role === 'torre' || t.role === 'regina')) return true; break; }
+      rr += dr; cc += dc;
+    }
+  }
+  return false;
+}
 // Il Re è sotto scacco se un pezzo avversario potrebbe attaccare la sua casella.
 function inCheck(g, color) {
   const king = Object.values(g.pieces).find((p) => p.alive && p.color === color && p.role === 're');
   if (!king) return false;
-  const gr = grid(g);
-  for (const p of Object.values(g.pieces)) {
-    if (!p.alive || p.color === color || p.frozen) continue; // un pezzo paralizzato non può attaccare
-    if (movesFor(p, gr).some((m) => m.kind === 'attack' && m.r === king.r && m.c === king.c)) return true;
-  }
-  return false;
+  return threatened(grid(g), king.r, king.c, color === 'w' ? 'b' : 'w');
 }
 
 // ---------- danno ----------
@@ -206,9 +227,13 @@ function applyMoveCore(g, color, p, r, c) {
 
 // Mosse legali: quelle che non lasciano il proprio Re sotto scacco (simulando anche i danni).
 // Il Re avversario non si può mai colpire: si dà scacco e si cerca il matto.
+// Per non copiare la partita a ogni mossa, la posizione si prova sulla griglia e poi si rimette a posto.
 function legalMoves(g, color) {
   const gr = grid(g);
   const res = {};
+  const foe = color === 'w' ? 'b' : 'w';
+  let king = null;
+  for (const p of Object.values(g.pieces)) if (p.alive && p.color === color && p.role === 're') king = p;
   for (const p of Object.values(g.pieces)) {
     if (!p.alive || p.color !== color) continue;
     if (p.frozen || g.shieldLock === p.id) continue; // paralizzato, o appena protetto dallo Scudo
@@ -216,9 +241,21 @@ function legalMoves(g, color) {
     for (const m of movesFor(p, gr)) {
       const target = m.kind === 'attack' ? gr[m.r][m.c] : null;
       if (target && target.role === 're') continue;
-      const sim = simClone(g);
-      applyMoveCore(sim, color, sim.pieces[p.id], m.r, m.c);
-      if (inCheck(sim, color)) continue;
+      // la mossa cambia le posizioni solo se è uno spostamento o un attacco che sconfigge il bersaglio
+      // (con lo Scudo, o se il bersaglio sopravvive, nulla si muove)
+      const lands = !target || (!target.shield && calcDamage(p, target).dmg >= target.hp);
+      let bad;
+      if (!lands) bad = king ? threatened(gr, king.r, king.c, foe) : false;
+      else {
+        const fr = p.r, fc = p.c;
+        gr[fr][fc] = null; gr[m.r][m.c] = p; p.r = m.r; p.c = m.c;
+        if (target) target.alive = false;
+        const kr = king ? (king === p ? m.r : king.r) : 0, kc = king ? (king === p ? m.c : king.c) : 0;
+        bad = king ? threatened(gr, kr, kc, foe) : false;
+        p.r = fr; p.c = fc; gr[fr][fc] = p; gr[m.r][m.c] = target;
+        if (target) target.alive = true;
+      }
+      if (bad) continue;
       if (target) Object.assign(m, preview(p, target));
       mv.push(m);
     }
