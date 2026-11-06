@@ -117,11 +117,26 @@ function scoreAll(entries, me, level) {
   const opp = G.other(me);
   QS = L.qs;
   DEADLINE = Infinity;
-  const run = (d) => entries.map((e) => search(e.sim, me, opp, d, -Infinity, Infinity, 1));
-  let scores = run(1); // il primo livello si completa sempre
+  // Dal secondo livello in poi si parte dalle candidate migliori del livello precedente e si usa il punteggio
+  // della migliore come limite: le altre vengono scartate presto (stesso risultato, ricerca molto più rapida).
+  let scores = entries.map(() => 0);
+  const run = (d, first) => {
+    const out = entries.map(() => 0);
+    const order = entries.map((_, i) => i).sort((x, y) => scores[y] - entries[y].cost - (scores[x] - entries[x].cost));
+    let bestAdj = -Infinity;
+    for (const i of order) {
+      const e = entries[i];
+      const alpha = first || bestAdj === -Infinity ? -Infinity : bestAdj + e.cost - 0.1;
+      const v = search(e.sim, me, opp, d, alpha, Infinity, 1);
+      out[i] = v;
+      if (v - e.cost > bestAdj) bestAdj = v - e.cost;
+    }
+    return out;
+  };
+  scores = run(1, true); // il primo livello si completa sempre
   const t0 = Date.now(); DEADLINE = t0 + L.ms;
   for (let d = 2; d <= L.depth; d++) {
-    try { scores = run(d); } catch (e) { if (e !== TIMEOUT) throw e; break; }
+    try { scores = run(d, false); } catch (e) { if (e !== TIMEOUT) throw e; break; }
   }
   DEADLINE = Infinity;
   entries.forEach((e, i) => { e.c.score = scores[i] - e.cost + Math.random() * 0.05; });
