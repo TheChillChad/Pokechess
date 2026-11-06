@@ -39,7 +39,7 @@ Per giocare con amici lontani il server deve essere raggiungibile da internet: v
 | Grafica dei pezzi | `public/sprites/` |
 | Effetti sonori (sintetizzati, nessun file audio) | `public/sound.js` |
 
-Dopo aver toccato le regole: `npm test` (39 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
+Dopo aver toccato le regole: `npm test` (57 test sulla logica; `node test/test-bot.js` fa giocare i bot tra loro).
 
 ## Logo
 

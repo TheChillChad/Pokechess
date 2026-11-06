@@ -538,27 +538,6 @@ t('Cambio: un alfiere non può cambiare colore di casella', () => {
 });
 
 console.log('Campo di prova');
-t('campo di prova: parte in gioco con tutti gli strumenti, e si può svuotare', () => {
-  const g = G.sandboxGame('start');
-  assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.sandbox, true);
-  assert.strictEqual(g.items.w.length, S.ITEM_IDS.length);
-  assert.strictEqual(G.sandboxEdit(g, { op: 'reset', preset: 'empty' }), null);
-  assert.deepStrictEqual(Object.values(g.pieces).map((p) => p.role), ['re', 're']);
-});
-t('campo di prova: metti, modifica, sposta e togli pezzi (i Re no)', () => {
-  const g = G.sandboxGame('empty');
-  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 4, c: 4, color: 'w', role: 'regina', type: 'fuoco' }), null);
-  const q = at(g, 4, 4); assert.strictEqual(q.hp, 10); assert.strictEqual(q.type, 'fuoco');
-  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'hp', value: 3 }), null); assert.strictEqual(q.hp, 3);
-  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'role', value: 'torre' }), null); assert.strictEqual(q.maxHp, 8);
-  assert.strictEqual(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'shield', value: true }), null); assert.ok(q.shield);
-  assert.strictEqual(G.sandboxEdit(g, { op: 'move', id: q.id, r: 2, c: 2 }), null); assert.ok(at(g, 2, 2));
-  const king = Object.values(g.pieces).find((p) => p.role === 're' && p.color === 'b');
-  assert.ok(G.sandboxEdit(g, { op: 'remove', r: king.r, c: king.c }), 'il Re non si toglie');
-  assert.strictEqual(G.sandboxEdit(g, { op: 'put', r: 3, c: 3, color: 'b', role: 're' }), null); assert.strictEqual(king.r, 3);
-  assert.ok(G.sandboxEdit(g, { op: 'set', id: q.id, field: 'type', value: 'nope' }), 'tipo inesistente');
-  assert.strictEqual(G.sandboxEdit(g, { op: 'remove', r: 2, c: 2 }), null); assert.ok(!g.pieces[q.id]);
-});
 t('campo di prova: gli strumenti non si consumano e il cimitero serve al Revitalizzante', () => {
   const g = G.sandboxGame('empty');
   G.sandboxEdit(g, { op: 'put', r: 6, c: 0, color: 'w', role: 'pedone', type: 'erba' });
@@ -577,7 +556,6 @@ t('campo di prova: dopo una modifica il matto sparisce e si può rigiocare', () 
   assert.ok(G.sandboxEdit(G.newGame(), { op: 'turn', color: 'w' }), 'fuori dal campo di prova non funziona');
 });
 
-console.log('Campo di prova');
 t('campo di prova: parte con la posizione iniziale e tutti gli strumenti, scacchiera vuota = solo i Re', () => {
   const g = G.sandboxGame('start');
   assert.strictEqual(Object.values(g.pieces).filter((p) => p.alive).length, 32);
