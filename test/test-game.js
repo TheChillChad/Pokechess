@@ -447,7 +447,7 @@ function luckyGame(bonus, vis = 'pos') {
 t('senza modificatore non esiste nessuna casella fortunata', () => {
   const g = G.newGame();
   assert.strictEqual(g.lucky, null);
-  assert.deepStrictEqual(g.mods, { lucky: null, randomTypes: false });
+  assert.deepStrictEqual(g.mods, { lucky: null, randomTypes: false, handicap: null });
 });
 t('la casella compare dopo 4 mezze mosse, libera e nelle righe centrali', () => {
   const g = startedGame(); g.mods = { lucky: { vis: 'pos' } }; g.lucky = { sq: null, nextAt: 4 };
@@ -697,6 +697,50 @@ t('draft normale invariato senza il modificatore', () => {
   const g = G.newGame(); G.startDraft(g);
   assert.strictEqual(g.phase, 'draft'); assert.strictEqual(g.picks, 0); assert.ok(!g.pieces.w8.type);
   assert.strictEqual(G.newGame({ randomTypes: 1 }).mods.randomTypes, true); assert.strictEqual(G.newGame().mods.randomTypes, false);
+});
+
+console.log('Handicap');
+const hcGame = (level, color) => { const g = G.newGame({ randomTypes: true, handicap: { level, color } }); G.startDraft(g); return g; };
+const hcPlay = (g, kitW, kitB) => { assert.strictEqual(G.setItems(g, 'w', kitW), null); assert.strictEqual(G.setItems(g, 'b', kitB), null); assert.strictEqual(g.phase, 'play'); };
+const alive = (g, c) => Object.values(g.pieces).filter((p) => p.color === c && p.alive);
+t('handicap leggero: 2 strumenti per il lato svantaggiato, 3 per l\'altro, nessun pezzo in meno', () => {
+  const g = hcGame('light', 'b');
+  assert.strictEqual(G.kitInfo(g, 'b').picks, 2); assert.strictEqual(G.kitInfo(g, 'w').picks, 3);
+  assert.ok(G.setItems(g, 'b', ['pozione', 'cristallo', 'bomba']), 'tre strumenti non vanno bene');
+  hcPlay(g, ['pozione', 'cristallo', 'bomba'], ['pozione', 'bomba']);
+  assert.strictEqual(alive(g, 'b').length, 16); assert.strictEqual(g.items.b.length, 2);
+});
+t('handicap medio: toglie i pedoni delle colonne c e f (senza cimitero)', () => {
+  const g = hcGame('medium', 'w'); hcPlay(g, ['pozione', 'bomba'], ['pozione', 'cristallo', 'bomba']);
+  assert.strictEqual(alive(g, 'w').length, 14); assert.strictEqual(alive(g, 'b').length, 16);
+  assert.ok(!alive(g, 'w').some((p) => p.role === 'pedone' && (p.c === 2 || p.c === 5)));
+  assert.deepStrictEqual(g.graveyard.w, []);
+});
+t('handicap pesante: toglie un Cavallo e una Torre', () => {
+  const g = hcGame('heavy', 'b'); hcPlay(g, ['pozione', 'cristallo', 'bomba'], ['pozione', 'bomba']);
+  const b = alive(g, 'b');
+  assert.strictEqual(b.length, 14); assert.strictEqual(b.filter((p) => p.role === 'torre').length, 1); assert.strictEqual(b.filter((p) => p.role === 'cavallo').length, 1);
+  assert.strictEqual(b.filter((p) => p.role === 'pedone').length, 8);
+});
+t('handicap estremo: niente strumenti e niente Regina', () => {
+  const g = hcGame('extreme', 'w');
+  assert.strictEqual(G.kitInfo(g, 'w').picks, 0);
+  hcPlay(g, [], ['pozione', 'cristallo', 'bomba']);
+  assert.deepStrictEqual(g.items.w, []); assert.ok(!alive(g, 'w').some((p) => p.role === 'regina')); assert.ok(alive(g, 'b').some((p) => p.role === 'regina'));
+  assert.ok(Object.keys(G.legalMoves(g, 'w')).length > 0);
+});
+t('handicap: valori non validi ignorati e stato pubblico', () => {
+  assert.strictEqual(G.newGame({ handicap: { level: 'boh', color: 'w' } }).mods.handicap, null);
+  assert.strictEqual(G.newGame({ handicap: { level: 'light', color: 'x' } }).mods.handicap, null);
+  assert.deepStrictEqual(G.publicState({ code: 'ABCDE', game: hcGame('heavy', 'b'), players: { w: { sid: 'x' }, b: { sid: 'y' } } }, 'w').mods.handicap, { level: 'heavy', color: 'b' });
+});
+t('handicap: il bot sceglie il kit giusto e la partita va avanti', () => {
+  const B = require('../bot.js');
+  for (const lv of ['light', 'extreme']) {
+    const g = hcGame(lv, 'w');
+    for (const c of ['w', 'b']) assert.strictEqual(B.act(g, c, 'normal'), null);
+    assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.items.w.length, lv === 'extreme' ? 0 : 2);
+  }
 });
 
 console.log(`\n${passed} test passati`);

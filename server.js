@@ -40,6 +40,7 @@ function newCode() {
 }
 const validToken = (t) => typeof t === 'string' && t.length >= 8 && t.length <= 80;
 const REACTIONS = ['👍', '😮', '😂', '🔥', '😅', 'GG'];
+const noHandicap = (m) => (m ? { ...m, handicap: null } : m);
 const cleanName = (n) => (typeof n === 'string' ? n.replace(/[\u0000-\u001f<>&"'`\\]/g, '').trim().slice(0, 14) : '');
 const validCode = (c) => typeof c === 'string' && /^[A-Z0-9]{5}$/.test(c);
 
@@ -102,7 +103,7 @@ io.on('connection', (socket) => {
   socket.on('create', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now() };
+    const room = { code: newCode(), game: G.newGame(noHandicap(data.mods)), players: { w: null, b: null }, touched: Date.now() };
     rooms.set(room.code, room);
     seat(room, socket, Math.random() < 0.5 ? 'w' : 'b', data.token, cleanName(data.name));
     cb({ ok: true, code: room.code });
@@ -116,7 +117,9 @@ io.on('connection', (socket) => {
     const mine = Math.random() < 0.5 ? 'w' : 'b';
     const run = data.run ? Scalata.normRun(data.run) : null; // Scalata: livello del bot e bonus dipendono dallo scontro
     const level = run ? Scalata.STAGES[run.stage - 1].level : ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
-    const room = { code: newCode(), game: G.newGame(run ? null : data.mods, run && { ...run, color: mine }), players: { w: null, b: null }, touched: Date.now() };
+    const hd = !run && data.mods && data.mods.handicap; // handicap: { level, who: 'me' | 'bot' } solo contro il computer
+    const mods = run ? null : { ...(data.mods || {}), handicap: hd ? { level: hd.level, color: hd.who === 'me' ? mine : G.other(mine) } : null };
+    const room = { code: newCode(), game: G.newGame(mods, run && { ...run, color: mine }), players: { w: null, b: null }, touched: Date.now() };
     if (run) { room.run = true; room.undoLeft = Scalata.has(run, 'seconda') ? 1 : 0; }
     rooms.set(room.code, room);
     seat(room, socket, mine, data.token, cleanName(data.name));
@@ -124,7 +127,8 @@ io.on('connection', (socket) => {
     room.players[bc] = { token: '__bot__', sid: null, bot: true };
     room.bot = { color: bc, level };
     G.startDraft(room.game);
-    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}`);
+    const hc = room.game.mods.handicap;
+    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}${hc ? ` Handicap ${{ light: 'leggero', medium: 'medio', heavy: 'pesante', extreme: 'estremo' }[hc.level]} per ${hc.color === mine ? 'te' : 'il computer'}.` : ''}`);
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -133,7 +137,7 @@ io.on('connection', (socket) => {
   socket.on('createLocal', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now(), local: true };
+    const room = { code: newCode(), game: G.newGame(noHandicap(data.mods)), players: { w: null, b: null }, touched: Date.now(), local: true };
     rooms.set(room.code, room);
     seat(room, socket, 'w', data.token, cleanName(data.name));
     room.players.b = { token: data.token, sid: null, local: true };
@@ -234,6 +238,8 @@ io.on('connection', (socket) => {
     const { w, b } = room.players;
     room.players.w = b; room.players.b = w;
     if (room.bot) room.bot.color = G.other(room.bot.color);
+    const hh = room.game.mods.handicap;
+    if (hh) hh.color = G.other(hh.color); // l'handicap resta a chi lo aveva: i colori si scambiano
     for (const col of ['w', 'b']) {
       const pl = room.players[col];
       const s = pl && pl.sid ? io.sockets.sockets.get(pl.sid) : null;

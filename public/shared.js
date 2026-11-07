@@ -77,6 +77,7 @@
   };
   const LUCKY_VIS = { hidden: 'Nascosta', pos: 'Visibile', full: 'Visibile con bonus' };
 
+  const HANDICAP_LABEL = { light: 'Leggero', medium: 'Medio', heavy: 'Pesante', extreme: 'Estremo' };
   const TEAM = { w: 'Blu', b: 'Rosso' };
   const MAX_PER_TYPE = 2;
   const KIT_SIZE = 3;
@@ -94,5 +95,5 @@
     return 1;
   }
 
-  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax, LUCKY_BONUS, LUCKY_VIS, luckyInfo };
+  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax, LUCKY_BONUS, LUCKY_VIS, luckyInfo, HANDICAP_LABEL };
 });

@@ -176,9 +176,10 @@ function draft(g, color) {
 }
 
 function kit(g, color, level) {
+  const n = G.kitInfo(g, color).picks;
   const list = level === 'easy'
-    ? shuffle(S.ITEM_IDS).slice(0, S.KIT_SIZE)
-    : ['bomba'].concat(shuffle(['paralisi', 'scudo', 'pozione', 'revitalizzante', 'pietra']).slice(0, S.KIT_SIZE - 1));
+    ? shuffle(S.ITEM_IDS).slice(0, n)
+    : (n > 0 ? ['bomba'] : []).concat(shuffle(['paralisi', 'scudo', 'pozione', 'revitalizzante', 'pietra']).slice(0, Math.max(0, n - 1)));
   return G.setItems(g, color, list);
 }
 

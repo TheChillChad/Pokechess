@@ -20,7 +20,24 @@ const LUCKY_GAP = 6;   // e ricompare 6 mezze mosse (3 turni a testa) dopo esser
 // modificatori: { lucky: null | { vis: 'hidden' | 'pos' | 'full' } }
 function normMods(m) {
   const l = m && m.lucky;
-  return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null, randomTypes: !!(m && m.randomTypes) };
+  const h = m && m.handicap;
+  const handicap = h && HANDICAP_LEVELS.includes(h.level) && (h.color === 'w' || h.color === 'b') ? { level: h.level, color: h.color } : null;
+  return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null, randomTypes: !!(m && m.randomTypes), handicap };
+}
+
+// Handicap (solo contro il bot): il lato svantaggiato ha meno strumenti e/o pezzi in meno
+const HANDICAP_LEVELS = ['light', 'medium', 'heavy', 'extreme'];
+const HANDICAP_LABEL = { light: 'Leggero', medium: 'Medio', heavy: 'Pesante', extreme: 'Estremo' };
+function handicapPicks(h) { return h.level === 'extreme' ? 0 : Math.max(0, S.KIT_SIZE - 1); }
+// pezzi tolti all'inizio della partita (non vanno nel cimitero)
+function applyHandicap(g) {
+  const h = g.mods.handicap;
+  if (!h) return;
+  const mine = Object.values(g.pieces).filter((p) => p.color === h.color && p.alive);
+  const cut = (role, c) => { const p = mine.find((x) => x.role === role && x.c === c); if (p) p.alive = false; };
+  if (h.level === 'medium') { cut('pedone', 5); cut('pedone', 2); }
+  if (h.level === 'heavy') { cut('cavallo', 1); cut('torre', 0); }
+  if (h.level === 'extreme') cut('regina', 3);
 }
 
 function newGame(mods, run) {
@@ -332,7 +349,9 @@ function draftPick(g, color, pieceId, type) {
 
 // Kit di un lato: quanti strumenti si scelgono, quali si ricevono in più (Scalata) e di quanto si superano i limiti
 function kitInfo(g, color) {
-  return SC.kitFor(g.run, !!g.run && g.run.color === color, S.KIT_SIZE);
+  const k = SC.kitFor(g.run, !!g.run && g.run.color === color, S.KIT_SIZE);
+  const h = g.mods && g.mods.handicap;
+  return h && h.color === color ? { ...k, picks: handicapPicks(h) } : k;
 }
 
 function setItems(g, color, list, choices) {
@@ -355,6 +374,7 @@ function setItems(g, color, list, choices) {
     g.phase = 'play';
     g.turn = 'w';
     if (g.run) applyRun(g);
+    applyHandicap(g);
     log(g, 'Si parte! Muove il Blu.');
   }
   return null;

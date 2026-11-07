@@ -88,6 +88,22 @@
           </select>
         </div>
         <label class="h-chk"><input type="checkbox" id="optRandom"> 🎲 Tipi a caso (niente draft)</label>
+        <div id="optHandicapBox" hidden>
+          <label class="h-chk" for="optHandicap">⚖️ Handicap contro il bot</label>
+          <div class="h-optrow">
+            <select id="optHandicap" aria-label="Livello di handicap">
+              <option value="">Nessuno</option>
+              <option value="light">Leggero: 2 strumenti invece di 3</option>
+              <option value="medium">Medio: 2 strumenti e 2 pedoni in meno</option>
+              <option value="heavy">Pesante: 2 strumenti, un Cavallo e una Torre in meno</option>
+              <option value="extreme">Estremo: niente strumenti e niente Regina</option>
+            </select>
+            <select id="optHandicapWho" aria-label="Chi ha lo svantaggio">
+              <option value="me">Svantaggio a me</option>
+              <option value="bot">Svantaggio al computer</option>
+            </select>
+          </div>
+        </div>
         <p class="h-hint">Vale per la prossima partita che crei: online, contro il bot o in locale. Caselle fortunate: una casella libera nelle righe centrali dà un bonus a chi ci arriva. Tipi a caso: i tipi vengono assegnati subito (stesso mazzo per tutti e due) e si passa agli strumenti.</p>
       </details></div>
       <p id="homeErr" class="err" role="alert"></p>

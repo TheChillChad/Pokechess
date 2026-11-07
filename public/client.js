@@ -22,13 +22,14 @@
 
   // modificatori scelti nella home (valgono per la prossima partita creata)
   const optLucky = $('#optLucky'), optVis = $('#optLuckyVis'), optRandom = $('#optRandom');
+  const optHc = $('#optHandicap'), optHcWho = $('#optHandicapWho');
   function saveMods() {
     $('#optLuckyRow').hidden = !optLucky.checked;
-    $('#optsOn').hidden = !(optLucky.checked || optRandom.checked);
-    store('sm_mods', JSON.stringify({ lucky: optLucky.checked, vis: optVis.value, random: optRandom.checked }));
+    $('#optsOn').hidden = !(optLucky.checked || optRandom.checked || (ui.panel === 'bot' && optHc.value));
+    store('sm_mods', JSON.stringify({ lucky: optLucky.checked, vis: optVis.value, random: optRandom.checked, hc: optHc.value, hcWho: optHcWho.value }));
   }
-  try { const m = JSON.parse(store('sm_mods') || 'null'); if (m) { optLucky.checked = !!m.lucky; optRandom.checked = !!m.random; if (m.vis) optVis.value = m.vis; } } catch (e) { /* ignora */ }
-  optLucky.addEventListener('change', saveMods); optVis.addEventListener('change', saveMods); optRandom.addEventListener('change', saveMods); saveMods();
+  try { const m = JSON.parse(store('sm_mods') || 'null'); if (m) { optLucky.checked = !!m.lucky; optRandom.checked = !!m.random; if (m.vis) optVis.value = m.vis; if (m.hc) optHc.value = m.hc; if (m.hcWho) optHcWho.value = m.hcWho; } } catch (e) { /* ignora */ }
+  optLucky.addEventListener('change', saveMods); optVis.addEventListener('change', saveMods); optRandom.addEventListener('change', saveMods); optHc.addEventListener('change', saveMods); optHcWho.addEventListener('change', saveMods); saveMods();
   const getMods = () => ({ lucky: optLucky.checked ? { vis: optVis.value } : null, randomTypes: optRandom.checked });
 
   // ---------- utilità ----------
@@ -68,6 +69,8 @@
     const slot = document.querySelector(`#home .h-panel[data-panel="${name}"] [data-opts-slot]`);
     const box = $('#optsBox');
     if (box) { if (slot) slot.appendChild(box); else $('#optsHold').appendChild(box); }
+    $('#optHandicapBox').hidden = name !== 'bot';
+    saveMods();
     const last = store('sm_lv');
     document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.id === 'btnBot' + (last || '').charAt(0).toUpperCase() + (last || '').slice(1)));
     $('#homeErr').textContent = '';
@@ -140,7 +143,7 @@
       if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
     });
   });
-  const startBot = (level) => { store('sm_lv', level); socket.emit('createBot', { token, level, name: myName(), mods: getMods() }, (res) => {
+  const startBot = (level) => { store('sm_lv', level); socket.emit('createBot', { token, level, name: myName(), mods: { ...getMods(), handicap: optHc.value ? { level: optHc.value, who: optHcWho.value } : null } }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }); };
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
@@ -340,6 +343,8 @@
     const modPill = S.lucky ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
     const runPill = S.run ? `<span class="pill" title="Scalata">🏆 Scontro ${S.run.stage}/${Scalata.STAGE_COUNT}</span>` : '';
     const modPill2 = S.mods && S.mods.randomTypes ? '<span class="pill" title="Modificatore attivo: tipi a caso, senza draft">🎲 Tipi a caso</span>' : '';
+    const hc = S.mods && S.mods.handicap;
+    const hcPill = hc ? `<span class="pill" title="Handicap ${Sh.HANDICAP_LABEL[hc.level].toLowerCase()} per ${hc.color === S.you ? 'te' : 'il computer'}">⚖️ ${hc.color === S.you ? 'Tu' : 'PC'}: ${Sh.HANDICAP_LABEL[hc.level]}</span>` : '';
     const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
     if (S.spectator) {
       $('#topbar').innerHTML = `
@@ -347,7 +352,7 @@
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill">👁 Spettatore</span>
       <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
-      ${modPill}${modPill2}${eyes}
+      ${modPill}${modPill2}${hcPill}${eyes}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tipi</button>
@@ -358,7 +363,7 @@
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       ${S.sandbox && ui.sb.mode === 'edit' ? '' : `<span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>`}
-      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${modPill2}${eyes}
+      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${modPill2}${hcPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -636,6 +641,7 @@
         <div class="chips">${S.items[S.you].map((i) => `<span class="chip" style="padding-left:8px">${Sh.ITEMS[i].label}</span>`).join('')}</div></div>`;
     }
     const N = S.kit.picks;
+    if (N === 0) return `<div class="box"><h3>Nessuno strumento</h3><p>Per l'handicap parti senza strumenti.</p><div class="row"><button class="btn primary" type="button" data-act="confirmItems">Conferma</button></div></div>`;
     const slots = Array.from({ length: N }, (_, i) => {
       const it = ui.picks[i];
       return `<button class="slot ${it ? 'full' : ''}" type="button" data-act="unpick" data-i="${i}">${it ? Sh.ITEMS[it].icon + ' ' + Sh.ITEMS[it].label : 'Vuoto'}</button>`;
