@@ -6,7 +6,7 @@
 
   let S = null;            // ultimo stato ricevuto dal server
   let roomCode = null;
-  const ui = { sel: null, inspect: null, item: null, draftPiece: null, picks: [], seq: null, endDismissed: false, sb: { mode: 'edit', sq: null, moving: null, add: { color: 'w', role: 'pedone', type: null } } };
+  const ui = { sel: null, inspect: null, item: null, draftPiece: null, picks: [], rc: {}, seq: null, endDismissed: false, sb: { mode: 'edit', sq: null, moving: null, add: { color: 'w', role: 'pedone', type: null } } };
 
   // ---------- identità (per rientrare nella stanza dopo un ricaricamento) ----------
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignora */ } return null; }
@@ -56,7 +56,7 @@
   // ---------- connessione ----------
   function showHome(err) {
     S = null; roomCode = null;
-    $('#home').hidden = false; $('#game').hidden = true;
+    $('#home').hidden = false; $('#game').hidden = true; $('#scal').hidden = true;
     $('#homeErr').textContent = err || '';
   }
   function enterRoom(code) {
@@ -82,7 +82,7 @@
   socket.on('state', (st) => {
     const prev = S;
     S = st;
-    if (!prev || prev.phase !== st.phase || prev.you !== st.you) { ui.sel = null; ui.item = null; ui.draftPiece = null; ui.picks = []; }
+    if (!prev || prev.phase !== st.phase || prev.you !== st.you) { ui.sel = null; ui.item = null; ui.draftPiece = null; ui.picks = []; ui.rc = {}; }
     if (ui.sel && !st.legal[ui.sel]) ui.sel = null;
     if (ui.item && !myTurn()) ui.item = null;
     if (ui.draftPiece) { const p = byId(ui.draftPiece); if (!p || p.type || st.turn !== st.you) ui.draftPiece = null; }
@@ -142,6 +142,107 @@
     const code = $('#codeInput').value.trim().toUpperCase();
     if (!/^[A-Z0-9]{5}$/.test(code)) { $('#homeErr').textContent = 'Il codice ha 5 caratteri'; return; }
     joinRoom(code, false);
+  });
+
+  // ---------- Scalata ----------
+  document.addEventListener('change', (e) => {
+    const el = e.target.closest('[data-rc]');
+    if (!el || !S) return;
+    const k = el.dataset.rc;
+    if (k === 'sarto-id' || k === 'sarto-type') { ui.rc.sarto = ui.rc.sarto || {}; ui.rc.sarto[k === 'sarto-id' ? 'id' : 'type'] = el.value; }
+    else ui.rc[k] = el.value;
+    render();
+  });
+  const RUN0 = () => ({ stage: 1, bonuses: [], offer: null, playing: null, done: false, msg: '' });
+  function runGet() { try { const r = JSON.parse(store('sm_run')); if (r && r.stage) return { ...RUN0(), ...r }; } catch (e) { /* ignora */ } return RUN0(); }
+  function runSet(r) { store('sm_run', JSON.stringify(r)); }
+  // Esito di uno scontro: vittoria = bonus (o fine), patta = si ripete, sconfitta = Rivincita o si ricomincia
+  function scalResult(outcome, prefix) {
+    const r = runGet(); r.playing = null;
+    if (outcome === 'win') {
+      if (r.stage >= Scalata.STAGE_COUNT) { r.done = true; r.msg = ''; } else { r.offer = Scalata.offer(r); r.msg = 'Scontro vinto! Scegli un bonus.'; }
+    } else if (outcome === 'draw') r.msg = 'Patta: lo scontro si ripete, non perdi nulla.';
+    else {
+      const i = r.bonuses.indexOf('rivincita');
+      if (i >= 0) { r.bonuses.splice(i, 1); r.msg = 'Sconfitta, ma la Rivincita ti fa ripetere lo scontro.'; }
+      else { const lost = r.stage; Object.assign(r, RUN0(), { msg: `Sconfitta allo scontro ${lost}: si ricomincia da capo.` }); }
+    }
+    if (prefix) r.msg = prefix + ' ' + r.msg;
+    runSet(r);
+    return r;
+  }
+  function stageInfo(st) {
+    const bits = [];
+    if (st.hp) bits.push(Object.entries(st.hp).map(([k, v]) => `${Sh.ROLES[k].label.toLowerCase()} +${v} HP`).join(', '));
+    if (st.items) bits.push('strumenti extra: ' + st.items.map((i) => Sh.ITEMS[i].label).join(', '));
+    return bits.join(' · ');
+  }
+  function showScal() {
+    let r = runGet();
+    if (r.playing) r = scalResult('lose', 'Hai lasciato lo scontro: conta come sconfitta.');
+    $('#home').hidden = true; $('#game').hidden = true; $('#scal').hidden = false;
+    $('#scal').scrollTop = 0;
+    renderScal();
+  }
+  function goScal() { if (S) leaveRoom(); showScal(); }
+  const bonusChip = (id) => { const B = Scalata.BONUSES[id]; return `<span class="sc-chip${B.price ? ' price' : ''}" title="${esc(B.desc)}">${B.icon} ${B.label}</span>`; };
+  function renderScal() {
+    const r = runGet();
+    const st = Scalata.STAGES[r.stage - 1];
+    const ladder = Scalata.STAGES.map((s, i) => `<li class="${i + 1 < r.stage || r.done || (r.offer && i + 1 === r.stage) ? 'done' : i + 1 === r.stage ? 'now' : ''}"><i>${i + 1 < r.stage || r.done || (r.offer && i + 1 === r.stage) ? '✓' : i + 1}</i>${s.name}</li>`).join('');
+    const owned = r.bonuses.length ? r.bonuses.map(bonusChip).join('') : '<span class="mute">Nessun bonus ancora.</span>';
+    let main;
+    if (r.done) {
+      main = `<div class="sc-card win"><div class="sc-big">👑</div><h2>Scalata completata!</h2><p>Hai battuto tutti e ${Scalata.STAGE_COUNT} gli avversari.</p><button class="btn primary" type="button" data-sc="restart">Nuova scalata</button></div>`;
+    } else if (r.offer) {
+      main = `<div class="sc-card"><h2>Scegli un bonus</h2><p class="mute">Resta con te fino alla fine della scalata.</p>${r.offer.map((id) => { const B = Scalata.BONUSES[id]; return `<button class="sc-bonus${B.price ? ' price' : ''}" type="button" data-sc="pick" data-id="${id}"><b>${B.icon} ${B.label}</b>${B.price ? '<em>con un prezzo</em>' : ''}<span>${esc(B.desc)}</span></button>`; }).join('')}</div>`;
+    } else {
+      const info = stageInfo(st);
+      main = `<div class="sc-card"><h2>Scontro ${r.stage} di ${Scalata.STAGE_COUNT}: ${st.name}</h2>${info ? `<p class="mute">Vantaggi dell'avversario: ${esc(info)}.</p>` : '<p class="mute">Nessun vantaggio per l\'avversario.</p>'}<button class="btn primary" type="button" data-sc="fight">Combatti</button></div>`;
+    }
+    $('#scBody').innerHTML = `<button class="link sc-back" type="button" data-sc="home">← Home</button>
+      <h1 class="sc-title">🏆 Scalata</h1>
+      ${r.msg ? `<p class="sc-msg">${esc(r.msg)}</p>` : ''}
+      <ol class="sc-ladder">${ladder}</ol>${main}
+      <div class="sc-owned"><h3>I tuoi bonus</h3><div class="sc-chips">${owned}</div></div>
+      <button class="link" type="button" data-sc="restart">Ricomincia la scalata</button>`;
+  }
+  function renderRunEnd(el) {
+    const win = S.winner === S.you, draw = S.winner === null;
+    const last = S.run.stage >= Scalata.STAGE_COUNT;
+    const title = win ? (last ? 'Scalata completata!' : 'Scontro vinto!') : draw ? 'Patta' : 'Sconfitta';
+    const cls = win ? 'win' : draw ? 'draw' : 'lose';
+    if (ui.endDismissed || !el.hidden) return;
+    const r = runGet();
+    if (r.playing === S.code) scalResult(win ? 'win' : draw ? 'draw' : 'lose');
+    const msg = runGet().msg;
+    el.innerHTML = `<div class="endbox ${cls}"><canvas id="confetti"></canvas>
+      <div class="end-ico">${win ? '👑' : draw ? '🤝' : '💥'}</div>
+      <h2 class="end-title">${title}</h2><p class="end-reason">${esc(S.reason || '')}</p>${msg ? `<p class="end-reason">${esc(msg)}</p>` : ''}
+      <div class="end-actions"><button class="btn primary" type="button" data-act="scal">${win && !last ? 'Scegli il bonus' : 'Torna alla Scalata'}</button>
+      <button class="link" type="button" data-act="review">Guarda la scacchiera</button></div></div>`;
+    el.hidden = false;
+    if (win) confetti();
+  }
+  $('#btnScal').addEventListener('click', showScal);
+  $('#scal').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-sc]');
+    if (!b) return;
+    const r = runGet();
+    switch (b.dataset.sc) {
+      case 'home': showHome(''); break;
+      case 'pick': {
+        if (!r.offer || !r.offer.includes(b.dataset.id)) break;
+        r.bonuses.push(b.dataset.id); r.offer = null; r.stage++; r.msg = '';
+        runSet(r); renderScal(); break;
+      }
+      case 'restart': if (r.done || confirm('Ricominciare la scalata da capo? Perdi tutti i bonus.')) { runSet(RUN0()); renderScal(); } break;
+      case 'fight':
+        socket.emit('createBot', { token, name: myName(), run: { stage: r.stage, bonuses: r.bonuses } }, (res) => {
+          if (res && res.ok) { const r2 = runGet(); r2.playing = res.code; r2.msg = ''; runSet(r2); enterRoom(res.code); } else toast((res && res.error) || 'Errore');
+        });
+        break;
+    }
   });
 
   // ---------- evidenziazioni ----------
@@ -208,17 +309,18 @@
   // ---------- rendering ----------
   function render() {
     if (!S) return;
-    $('#home').hidden = true; $('#game').hidden = false;
+    $('#home').hidden = true; $('#scal').hidden = true; $('#game').hidden = false;
     renderReactBar(); renderTop(); renderStatus(); renderBoard(); renderPanel(); popEvent(); renderEnd();
   }
 
   function renderTop() {
     const o = opp();
-    const lv = S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const lv = S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
     const modPill = S.lucky ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
+    const runPill = S.run ? `<span class="pill" title="Scalata">🏆 Scontro ${S.run.stage}/${Scalata.STAGE_COUNT}</span>` : '';
     const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
     if (S.spectator) {
       $('#topbar').innerHTML = `
@@ -237,7 +339,7 @@
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       ${S.sandbox && ui.sb.mode === 'edit' ? '' : `<span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>`}
-      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${modPill}${eyes}
+      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -486,25 +588,50 @@
       <p class="mute">Pezzi senza tipo: ${left}. Ogni tipo si può usare al massimo ${Sh.MAX_PER_TYPE} volte. Il Re resta incolore.</p></div>`;
   }
 
+  // scelte dei bonus della Scalata (Veterano, Sarto, Vivaio) fatte insieme al kit
+  const sqName = (p) => 'abcdefgh'[p.c] + (8 - p.r);
+  const pieceLabel = (p) => `${Sh.ROLES[p.role].label}${p.type ? ' ' + Sh.TYPE_LABEL[p.type] : ''} (${sqName(p)})`;
+  function choiceDone() {
+    if (!S.run) return true;
+    return S.run.choices.every(({ id }) => id === 'sarto' ? ui.rc.sarto && ui.rc.sarto.id && ui.rc.sarto.type : !!ui.rc[id]);
+  }
+  function choiceBox() {
+    if (!S.run || !S.run.choices.length) return '';
+    const mine = S.pieces.filter((p) => p.alive && p.color === S.you && p.role !== 're');
+    const pieceSel = (key, list, val) => `<select data-rc="${key}"><option value="">— scegli un pezzo —</option>${list.map((p) => `<option value="${p.id}" ${val === p.id ? 'selected' : ''}>${esc(pieceLabel(p))}</option>`).join('')}</select>`;
+    const rows = S.run.choices.map(({ id, kind }) => {
+      const B = Scalata.BONUSES[id];
+      let ctl;
+      if (kind === 'type') {
+        const cur = ui.rc.sarto || {};
+        ctl = pieceSel('sarto-id', mine, cur.id) + `<select data-rc="sarto-type"><option value="">— nuovo tipo —</option>${Sh.TYPES.map((t) => `<option value="${t}" ${cur.type === t ? 'selected' : ''}>${Sh.TYPE_LABEL[t]}</option>`).join('')}</select>`;
+      } else ctl = pieceSel(id, kind === 'pawn' ? mine.filter((p) => p.role === 'pedone') : mine, ui.rc[id]);
+      return `<div class="sc-choice"><b>${B.icon} ${B.label}</b><span>${B.desc}</span>${ctl}</div>`;
+    }).join('');
+    return `<div class="box"><h3>Scelte dei bonus</h3>${rows}</div>`;
+  }
+  const capOf = (i) => Sh.itemMax(i) + (S.kit ? S.kit.extraCap : 0);
   function itemsPanel() {
     if (S.itemsReady[S.you]) {
       return `<div class="box"><h3>Strumenti scelti</h3><p>Attendo che ${teamName(opp())} finisca di scegliere…</p>
         <div class="chips">${S.items[S.you].map((i) => `<span class="chip" style="padding-left:8px">${Sh.ITEMS[i].label}</span>`).join('')}</div></div>`;
     }
-    const slots = [0, 1, 2].map((i) => {
+    const N = S.kit.picks;
+    const slots = Array.from({ length: N }, (_, i) => {
       const it = ui.picks[i];
       return `<button class="slot ${it ? 'full' : ''}" type="button" data-act="unpick" data-i="${i}">${it ? Sh.ITEMS[it].icon + ' ' + Sh.ITEMS[it].label : 'Vuoto'}</button>`;
     }).join('');
     const cards = Sh.ITEM_IDS.map((i) => {
       const n = ui.picks.filter((x) => x === i).length;
-      return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= Sh.KIT_SIZE || n >= Sh.itemMax(i) ? 'disabled' : ''}>
-        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b>${Sh.itemMax(i) < Sh.KIT_SIZE ? ` <small class="mute">(max ${Sh.itemMax(i)})</small>` : ''}<span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
+      return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= N || n >= capOf(i) ? 'disabled' : ''}>
+        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b>${capOf(i) < N ? ` <small class="mute">(max ${capOf(i)})</small>` : ''}<span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
     }).join('');
-    return `<div class="box"><h3>Scegli 3 strumenti</h3>
-      <p class="mute">Puoi prendere lo stesso strumento più volte, salvo i limiti indicati. Usarne uno costa il turno. Clicca uno slot per toglierlo.</p>
+    const forced = S.kit.forced.length ? `<p class="mute">In più ricevi: ${S.kit.forced.map((i) => Sh.ITEMS[i].icon + ' ' + Sh.ITEMS[i].label).join(', ')}.</p>` : '';
+    return `${choiceBox()}<div class="box"><h3>Scegli ${N} strument${N === 1 ? 'o' : 'i'}</h3>
+      <p class="mute">Puoi prendere lo stesso strumento più volte, salvo i limiti indicati. Usarne uno costa il turno. Clicca uno slot per toglierlo.</p>${forced}
       <div class="slots">${slots}</div>
       <div class="itemgrid">${cards}</div>
-      <div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="confirmItems" ${ui.picks.length === Sh.KIT_SIZE ? '' : 'disabled'}>Conferma</button></div></div>`;
+      <div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="confirmItems" ${ui.picks.length === N && choiceDone() ? '' : 'disabled'}>Conferma</button></div></div>`;
   }
 
   function playPanel() {
@@ -513,7 +640,7 @@
       const res = S.winner === null ? ['draw', 'Patta'] : S.winner === S.you ? ['win', 'Hai vinto!'] : ['lose', 'Hai perso'];
       if (S.sandbox) html += `<div class="banner ${res[0]}">${S.winner ? 'Vince il ' + teamName(S.winner) : 'Patta'}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>`;
       else html += `<div class="banner ${res[0]}">${res[1]}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
-        <div class="row"><button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button>${(S.bot || S.local) && S.canUndo ? '<button class="btn" type="button" data-act="undo">↶ Annulla mossa</button>' : ''}</div>`;
+        <div class="row">${S.run ? '<button class="btn primary" type="button" data-act="scal">Torna alla Scalata</button>' : `<button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button>`}${(S.bot || S.local) && S.canUndo ? '<button class="btn" type="button" data-act="undo">↶ Annulla mossa</button>' : ''}</div>`;
     }
     if (S.pending) {
       const p = byId(S.pending.id);
@@ -655,9 +782,15 @@
       case 'type':
         if (ui.draftPiece) { socket.emit('draft', { id: ui.draftPiece, type: d.type }); ui.draftPiece = null; }
         break;
-      case 'pick': if (ui.picks.length < Sh.KIT_SIZE && ui.picks.filter((x) => x === d.item).length < Sh.itemMax(d.item)) { ui.picks.push(d.item); render(); } break;
+      case 'pick': if (ui.picks.length < S.kit.picks && ui.picks.filter((x) => x === d.item).length < capOf(d.item)) { ui.picks.push(d.item); render(); } break;
       case 'unpick': ui.picks.splice(+d.i, 1); render(); break;
-      case 'confirmItems': socket.emit('items', { list: ui.picks }); break;
+      case 'confirmItems': {
+        const choices = {};
+        if (S.run) for (const { id } of S.run.choices) choices[id] = id === 'sarto' ? { id: ui.rc.sarto.id, type: ui.rc.sarto.type } : ui.rc[id];
+        socket.emit('items', { list: ui.picks, choices });
+        break;
+      }
+      case 'scal': goScal(); break;
       case 'useItem': ui.item = ui.item && ui.item.name === d.item ? null : { name: d.item }; ui.sel = null; render(); break;
       case 'cancelItem': ui.item = null; render(); break;
       case 'grave': ui.item.id = d.id; render(); break;
@@ -695,6 +828,7 @@
     const a = btn.dataset.act;
     if (a === 'rematch') { ui.endDismissed = false; socket.emit('rematch'); }
     else if (a === 'home') leaveRoom();
+    else if (a === 'scal') goScal();
     else if (a === 'undo') socket.emit('undo');
     else if (a === 'sbEdit') { ui.sb.mode = 'edit'; render(); }
     else if (a === 'review') { ui.endDismissed = true; $('#endcard').hidden = true; }
@@ -716,6 +850,7 @@
     const el = $('#endcard');
     if (!S || S.phase !== 'over' || S.sandbox) { el.hidden = true; ui.endDismissed = false; return; }
     if (ui.endDismissed || !el.hidden) return;
+    if (S.run && !S.spectator) return renderRunEnd(el);
     const res = S.winner === null ? ['draw', 'Patta'] : S.local || S.spectator ? ['win', 'Vince il ' + teamName(S.winner)] : S.winner === S.you ? ['win', 'Vittoria!'] : ['lose', 'Sconfitta'];
     el.innerHTML = `<div class="endbox ${res[0]}"><canvas id="confetti"></canvas>
       <div class="end-ico">${res[0] === 'win' ? '👑' : res[0] === 'lose' ? '💥' : '🤝'}</div>

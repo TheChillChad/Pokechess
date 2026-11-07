@@ -47,6 +47,7 @@
         <button id="btnBotHard" class="btn h-lv h-lv-hard" type="button">Difficile</button>
         <button id="btnBotMaster" class="btn h-lv h-lv-master" type="button">Maestro</button>
       </div>
+      <button id="btnScal" class="btn" type="button">🏆 Scalata</button>
       <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
       <button id="btnSandbox" class="btn" type="button">🧪 Campo di prova</button>
       <div class="or">oppure entra in una stanza</div>
@@ -59,6 +60,8 @@
     </div>
   </div>
 </section>
+
+<section id="scal" hidden><div class="sc-wrap" id="scBody"></div></section>
 
 <div id="game" hidden>
   <header id="topbar"></header>
@@ -78,6 +81,7 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="shared.js"></script>
+<script src="scalata.js"></script>
 <script src="config.js"></script>
 <script src="sound.js"></script>
 <script src="client.js"></script>

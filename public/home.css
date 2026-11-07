@@ -79,3 +79,30 @@
 #home .h-optrow select{width:100%;padding:10px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:var(--cream);font-size:15px}
 #home .h-optrow select option{color:#111}
 #home .h-hint{margin:10px 0 0;color:rgba(244,241,234,.55);font-size:13px}
+
+/* Scalata (prefisso sc-) */
+#scal{position:fixed;inset:0;overflow-y:auto;background:var(--night);color:var(--cream);z-index:5;-webkit-overflow-scrolling:touch}
+.sc-wrap{max-width:460px;margin:0 auto;padding:18px 16px 40px;display:flex;flex-direction:column;gap:14px}
+.sc-back{align-self:flex-start}
+.sc-title{margin:0;font-family:'Aoboshi One',serif;font-size:30px;color:#F2B632;text-align:center}
+.sc-msg{margin:0;padding:10px 12px;border-radius:12px;background:rgba(242,182,50,.14);border:1px solid rgba(242,182,50,.4);text-align:center;font-weight:700}
+.sc-ladder{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sc-ladder li{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;opacity:.55;text-align:center}
+.sc-ladder li i{font-style:normal;font-weight:800;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;border:2px solid rgba(255,255,255,.3)}
+.sc-ladder li.done{opacity:1}.sc-ladder li.done i{background:#3FA66B;border-color:#3FA66B}
+.sc-ladder li.now{opacity:1;font-weight:800}.sc-ladder li.now i{background:#F2B632;border-color:#F2B632;color:#2A1D05}
+.sc-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.16);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px;text-align:center}
+.sc-card h2{margin:0;font-size:20px}.sc-card p{margin:0}.sc-card .btn{min-height:54px}
+.sc-big{font-size:46px}
+.sc-bonus{display:flex;flex-direction:column;gap:4px;text-align:left;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:12px;color:var(--cream);cursor:pointer;font:inherit}
+.sc-bonus:hover{background:rgba(255,255,255,.13)}
+.sc-bonus b{font-size:16px}.sc-bonus span{font-size:14px;opacity:.9}
+.sc-bonus em{font-style:normal;font-size:12px;color:#F29A5A;font-weight:800}
+.sc-bonus.price{border-color:rgba(242,154,90,.6)}
+.sc-owned h3{margin:0 0 6px;font-size:14px;opacity:.8}
+.sc-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sc-chip{padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.1);font-size:13px;font-weight:700}
+.sc-chip.price{background:rgba(242,154,90,.2)}
+.sc-choice{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.sc-choice span{font-size:13px;opacity:.85}
+.sc-choice select{min-height:42px;font-size:15px;border-radius:10px;max-width:100%}

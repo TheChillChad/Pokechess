@@ -825,7 +825,7 @@ function publicState(room, color) {
     spectators: room.spectators ? room.spectators.size : 0,
     names: { w: (room.players.w && room.players.w.name) || '', b: (room.players.b && room.players.b.name) || '' },
     drawOffer: room.drawOffer || null,
-    canUndo: !!((room.bot || room.local) && room.snaps && room.snaps.length),
+    canUndo: !!((room.bot || room.local) && room.snaps && room.snaps.length) && (!room.run || (room.undoLeft > 0 && g.phase === 'play')),
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,
