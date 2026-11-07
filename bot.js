@@ -102,18 +102,33 @@ function search(sim, me, toMove, depth, alpha, beta, ply) {
   return best;
 }
 
-// livelli: profondità massima (mezze mosse dopo la nostra), tempo a disposizione e ricerca a fine percorso
+// livelli: profondità massima (mosse dopo la nostra), tempo a disposizione, ricerca a fine percorso,
+// rumore (casualità sul punteggio, in "pedoni") e scivolone (probabilità di giocare una delle migliori 3 mosse a caso)
 const LEVELS = {
   easy: { depth: 0, ms: 0, qs: false },
   normal: { depth: 1, ms: 0, qs: false },
   hard: { depth: 3, ms: 1500, qs: true },
   master: { depth: 8, ms: 3500, qs: true },
+  quick: { depth: 3, ms: 300, qs: true }, // solo per gli esperimenti dell'arena
+  // Scala per la modalità "Scalata": da l1 (principiante) a l10 (come il Maestro). l1 = Facile, l3 = Normale, l7 = Difficile, l10 = Maestro.
+  l1: { alias: 'easy' },
+  l2: { depth: 1, ms: 0, qs: false, noise: 1.2, slip: 0.35 },
+  l3: { alias: 'normal' },
+  l4: { depth: 2, ms: 400, qs: false, noise: 0.5, slip: 0.2 },
+  l5: { depth: 2, ms: 700, qs: true, noise: 0.35, slip: 0.12 },
+  l6: { depth: 3, ms: 1000, qs: true, noise: 0.2, slip: 0.06 },
+  l7: { alias: 'hard' },
+  l8: { depth: 5, ms: 2300, qs: true },
+  l9: { depth: 6, ms: 3000, qs: true },
+  l10: { alias: 'master' },
 };
+const TS = +process.env.BOT_TIME_SCALE || 1; // solo per gli esperimenti (accorcia i tempi)
+const resolve = (level) => { let L = LEVELS[level] || LEVELS.normal; if (L.alias) { level = L.alias; L = LEVELS[level]; } return { name: level, L }; };
 
 // Dà un punteggio a tutte le mosse candidate. Approfondimento iterativo: si completa un livello per TUTTE
 // le candidate prima di passare al successivo, e se il tempo scade vale l'ultimo livello completato.
 function scoreAll(entries, me, level) {
-  const L = LEVELS[level] || LEVELS.normal;
+  const L = resolve(level).L;
   const opp = G.other(me);
   QS = L.qs;
   DEADLINE = Infinity;
@@ -134,12 +149,12 @@ function scoreAll(entries, me, level) {
     return out;
   };
   scores = run(1, true); // il primo livello si completa sempre
-  const t0 = Date.now(); DEADLINE = t0 + L.ms;
+  const t0 = Date.now(); DEADLINE = t0 + L.ms * TS;
   for (let d = 2; d <= L.depth; d++) {
     try { scores = run(d, false); } catch (e) { if (e !== TIMEOUT) throw e; break; }
   }
   DEADLINE = Infinity;
-  entries.forEach((e, i) => { e.c.score = scores[i] - e.cost + Math.random() * 0.05; });
+  entries.forEach((e, i) => { e.c.score = scores[i] - e.cost + Math.random() * (0.05 + (L.noise || 0)); });
 }
 
 // ---------- draft ----------
@@ -242,9 +257,11 @@ function cands(g, color, level) {
 function playTurn(g, color, level) {
   if (g.pending) return G.choosePromotion(g, color, g.items[color].includes('pietra') ? 'regina' : 'cavallo');
   const list = cands(g, color, level).sort((a, b) => b.score - a.score);
-  if (level === 'easy' && Math.random() < 0.2) {
-    const moves = list.filter((c) => c.kind === 'move');
-    if (moves.length) list.unshift(moves[rnd(moves.length)]);
+  if (level === 'easy') {
+    if (Math.random() < 0.2) { const moves = list.filter((c) => c.kind === 'move'); if (moves.length) list.unshift(moves[rnd(moves.length)]); }
+  } else {
+    const slip = resolve(level).L.slip || 0; // scivolone: una delle prime 3 scelte al posto della migliore
+    if (slip && Math.random() < slip && list.length > 1) { const [x] = list.splice(rnd(Math.min(3, list.length)), 1); list.unshift(x); }
   }
   for (const c of list) {
     const err = c.kind === 'move' ? G.move(g, color, c.id, c.r, c.c) : G.useItem(g, color, c.a);
@@ -268,6 +285,7 @@ function rescue(g, color) {
 
 // Fa UNA azione del bot nella fase corrente. Restituisce errore o null.
 function act(g, color, level) {
+  level = resolve(level).name; // gli alias (l1, l3, l7, l10) valgono come i livelli con nome
   if (g.phase === 'draft') return g.turn === color ? draft(g, color) : null;
   if (g.phase === 'items') return g.itemsReady[color] ? null : kit(g, color, level);
   if (g.phase === 'play') return g.turn === color ? playTurn(g, color, level) : null;
