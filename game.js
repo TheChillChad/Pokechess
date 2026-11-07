@@ -20,7 +20,7 @@ const LUCKY_GAP = 6;   // e ricompare 6 mezze mosse (3 turni a testa) dopo esser
 // modificatori: { lucky: null | { vis: 'hidden' | 'pos' | 'full' } }
 function normMods(m) {
   const l = m && m.lucky;
-  return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null };
+  return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null, randomTypes: !!(m && m.randomTypes) };
 }
 
 function newGame(mods, run) {
@@ -289,6 +289,24 @@ function typeCounts(g) {
   for (const t of S.TYPES) { counts.w[t] = 0; counts.b[t] = 0; }
   for (const p of Object.values(g.pieces)) if (p.type) counts[p.color][p.type]++;
   return counts;
+}
+
+// Inizio della partita vera: draft dei tipi, oppure (modificatore «tipi a caso») tipi assegnati subito e si passa agli strumenti
+function startDraft(g) {
+  if (!g.mods.randomTypes) { g.phase = 'draft'; return; }
+  // Stessa «mano» di tipi per i due lati (15 su 16 posti: 2 per tipo, uno escluso a caso), assegnata a caso ai pezzi di ognuno
+  const hand = S.TYPES.flatMap((t) => [t, t]);
+  hand.splice(Math.floor(Math.random() * hand.length), 1);
+  for (const color of ['w', 'b']) {
+    const mine = Object.values(g.pieces).filter((p) => p.color === color && p.role !== 're');
+    const types = hand.slice();
+    for (let i = types.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [types[i], types[j]] = [types[j], types[i]]; }
+    mine.forEach((p, i) => { p.type = types[i]; });
+  }
+  g.picks = S.DRAFT_PICKS;
+  g.phase = 'items';
+  g.turn = 'w';
+  log(g, 'Tipi assegnati a caso (stesso mazzo per tutti e due). Ora scegliete 3 strumenti a testa.');
 }
 
 function draftPick(g, color, pieceId, type) {
@@ -847,7 +865,7 @@ function publicState(room, color) {
 }
 
 module.exports = {
-  newGame, kitInfo, draftPick, setItems, move, choosePromotion, useItem, resign,
+  newGame, kitInfo, startDraft, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
   actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };

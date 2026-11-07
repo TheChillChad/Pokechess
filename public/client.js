@@ -21,15 +21,15 @@
   if (nameInput) { nameInput.value = myName(); nameInput.addEventListener('input', () => store('sm_name', nameInput.value.trim().slice(0, 14) || null)); }
 
   // modificatori scelti nella home (valgono per la prossima partita creata)
-  const optLucky = $('#optLucky'), optVis = $('#optLuckyVis');
+  const optLucky = $('#optLucky'), optVis = $('#optLuckyVis'), optRandom = $('#optRandom');
   function saveMods() {
     $('#optLuckyRow').hidden = !optLucky.checked;
-    $('#optsOn').hidden = !optLucky.checked;
-    store('sm_mods', JSON.stringify({ lucky: optLucky.checked, vis: optVis.value }));
+    $('#optsOn').hidden = !(optLucky.checked || optRandom.checked);
+    store('sm_mods', JSON.stringify({ lucky: optLucky.checked, vis: optVis.value, random: optRandom.checked }));
   }
-  try { const m = JSON.parse(store('sm_mods') || 'null'); if (m) { optLucky.checked = !!m.lucky; if (m.vis) optVis.value = m.vis; } } catch (e) { /* ignora */ }
-  optLucky.addEventListener('change', saveMods); optVis.addEventListener('change', saveMods); saveMods();
-  const getMods = () => ({ lucky: optLucky.checked ? { vis: optVis.value } : null });
+  try { const m = JSON.parse(store('sm_mods') || 'null'); if (m) { optLucky.checked = !!m.lucky; optRandom.checked = !!m.random; if (m.vis) optVis.value = m.vis; } } catch (e) { /* ignora */ }
+  optLucky.addEventListener('change', saveMods); optVis.addEventListener('change', saveMods); optRandom.addEventListener('change', saveMods); saveMods();
+  const getMods = () => ({ lucky: optLucky.checked ? { vis: optVis.value } : null, randomTypes: optRandom.checked });
 
   // ---------- utilità ----------
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -339,6 +339,7 @@
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
     const modPill = S.lucky ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
     const runPill = S.run ? `<span class="pill" title="Scalata">🏆 Scontro ${S.run.stage}/${Scalata.STAGE_COUNT}</span>` : '';
+    const modPill2 = S.mods && S.mods.randomTypes ? '<span class="pill" title="Modificatore attivo: tipi a caso, senza draft">🎲 Tipi a caso</span>' : '';
     const eyes = S.spectators ? `<span class="pill" title="Spettatori">👁 ${S.spectators}</span>` : '';
     if (S.spectator) {
       $('#topbar').innerHTML = `
@@ -346,7 +347,7 @@
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill">👁 Spettatore</span>
       <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
-      ${modPill}${eyes}
+      ${modPill}${modPill2}${eyes}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tipi</button>
@@ -357,7 +358,7 @@
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       ${S.sandbox && ui.sb.mode === 'edit' ? '' : `<span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>`}
-      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${eyes}
+      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${modPill2}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -581,7 +582,7 @@
       <p>Codice stanza: <b style="font-size:24px;letter-spacing:.2em">${S.code}</b></p>
       <p class="mute" style="word-break:break-all">${esc(link)}</p>
       <div class="row"><button class="btn primary" data-act="copy" type="button">Copia link</button></div>
-      <p class="mute">Appena entra, comincia il draft dei tipi.</p></div>`;
+      <p class="mute">${S.mods && S.mods.randomTypes ? 'Appena entra, i tipi vengono assegnati a caso.' : 'Appena entra, comincia il draft dei tipi.'}</p></div>`;
   }
 
   function draftPanel() {
@@ -906,7 +907,7 @@
         <li><b>Catturare = attaccare.</b> Il bersaglio perde HP pari all'attacco, modificato dal tipo (×2, ×0,5). Se sopravvive, il tuo pezzo resta dov'è. Se muore, occupi la casella.</li>
         <li><b>Statistiche:</b> ${st}.</li>
         <li><b>Re:</b> incolore, senza HP, <b>elimina in un colpo qualsiasi pezzo</b> (lo Scudo lo ferma). <b>Il Re non si colpisce:</b> funziona lo scacco come negli scacchi. Se è minacciato devi spostarlo, pararti o eliminare chi lo minaccia (un attacco che non uccide non basta). Non puoi lasciarlo sotto scacco. <b>Scacco matto = partita persa</b>; senza mosse e senza scacco è patta.</li>
-        <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti.</li>
+        <li><b>Prima di giocare:</b> draft dei tipi a serpentina (Blu, Rosso, Rosso, Blu, Blu, Rosso… l'ultima scelta è del Rosso), ognuno al massimo 2 volte a testa, poi scegli 3 strumenti. (Con l'opzione «Tipi a caso» i tipi vengono assegnati subito e si salta il draft.)</li>
         <li><b>Strumenti</b> (costano il turno, tranne Scudo e Paralisi: azioni gratuite, una sola per turno, dopo le quali muovi un pezzo):${Sh.ITEM_IDS.filter((i) => Sh.ITEMS[i].active).map((i) => `<b>${Sh.ITEMS[i].label}</b>: ${Sh.ITEMS[i].desc}`).join(' ')}</li>
         <li><b>Promozione:</b> un pedone che arriva in fondo diventa Cavallo; con una ${Sh.ITEMS.pietra.label} scegli il pezzo.</li>
         ${S && S.lucky ? `<li><b>Caselle fortunate</b> (modificatore attivo): una casella libera delle righe centrali dà un bonus a chi ci arriva con un pezzo (anche catturando; il bersaglio deve morire). Bonus: +3 HP, Rabbia (+1 danno per 3 turni), Corazza (−1 danno subito per 3 turni) oppure uno strumento extra (Cristallo, Pozione, Cambio, Bomba). Il Re può prenderla, ma HP e potenziamenti si sprecano. Ne compare una nuova ${3} turni dopo.</li>` : ''}

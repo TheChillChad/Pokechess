@@ -447,7 +447,7 @@ function luckyGame(bonus, vis = 'pos') {
 t('senza modificatore non esiste nessuna casella fortunata', () => {
   const g = G.newGame();
   assert.strictEqual(g.lucky, null);
-  assert.deepStrictEqual(g.mods, { lucky: null });
+  assert.deepStrictEqual(g.mods, { lucky: null, randomTypes: false });
 });
 t('la casella compare dopo 4 mezze mosse, libera e nelle righe centrali', () => {
   const g = startedGame(); g.mods = { lucky: { vis: 'pos' } }; g.lucky = { sq: null, nextAt: 4 };
@@ -670,5 +670,33 @@ t('scalata: normRun e offerta dei bonus', () => {
   }
 });
 t('scalata: senza corsa niente cambia', () => { const g = G.newGame(); assert.strictEqual(g.run, null); assert.strictEqual(G.kitInfo(g, 'w').picks, 3); });
+
+console.log('Tipi a caso');
+t('tipi a caso: niente draft, tipi dati subito a tutti i pezzi tranne i Re', () => {
+  for (let n = 0; n < 20; n++) {
+    const g = G.newGame({ randomTypes: true });
+    G.startDraft(g);
+    assert.strictEqual(g.phase, 'items'); assert.strictEqual(g.picks, S.DRAFT_PICKS); assert.strictEqual(g.turn, 'w');
+    const count = { w: {}, b: {} };
+    for (const p of Object.values(g.pieces)) {
+      if (p.role === 're') { assert.ok(!p.type, 'il Re non ha tipo'); continue; }
+      assert.ok(S.TYPES.includes(p.type), 'ogni pezzo ha un tipo'); count[p.color][p.type] = (count[p.color][p.type] || 0) + 1;
+    }
+    for (const c of ['w', 'b']) for (const ty of S.TYPES) assert.ok((count[c][ty] || 0) <= S.MAX_PER_TYPE, 'al massimo 2 per tipo');
+    assert.deepStrictEqual(count.w, count.b, 'stesso mazzo di tipi per i due lati');
+  }
+});
+t('tipi a caso: si può poi giocare normalmente (kit e inizio partita)', () => {
+  const g = G.newGame({ randomTypes: true }); G.startDraft(g);
+  assert.strictEqual(G.setItems(g, 'w', ['pozione', 'cristallo', 'bomba']), null);
+  assert.strictEqual(G.setItems(g, 'b', ['pozione', 'cristallo', 'bomba']), null);
+  assert.strictEqual(g.phase, 'play');
+  assert.ok(G.draftPick(g, 'w', 'w8', 'fuoco'), 'il draft non è più possibile');
+});
+t('draft normale invariato senza il modificatore', () => {
+  const g = G.newGame(); G.startDraft(g);
+  assert.strictEqual(g.phase, 'draft'); assert.strictEqual(g.picks, 0); assert.ok(!g.pieces.w8.type);
+  assert.strictEqual(G.newGame({ randomTypes: 1 }).mods.randomTypes, true); assert.strictEqual(G.newGame().mods.randomTypes, false);
+});
 
 console.log(`\n${passed} test passati`);

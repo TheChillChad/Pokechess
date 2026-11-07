@@ -123,8 +123,8 @@ io.on('connection', (socket) => {
     const bc = G.other(mine);
     room.players[bc] = { token: '__bot__', sid: null, bot: true };
     room.bot = { color: bc, level };
-    room.game.phase = 'draft';
-    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). Draft dei tipi: il Blu comincia.`);
+    G.startDraft(room.game);
+    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}`);
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -137,8 +137,8 @@ io.on('connection', (socket) => {
     rooms.set(room.code, room);
     seat(room, socket, 'w', data.token, cleanName(data.name));
     room.players.b = { token: data.token, sid: null, local: true };
-    room.game.phase = 'draft';
-    room.game.log.push('Partita in locale: passatevi il dispositivo. Draft dei tipi: il Blu comincia.');
+    G.startDraft(room.game);
+    room.game.log.push(room.game.mods.randomTypes ? 'Partita in locale: passatevi il dispositivo. Tipi a caso: si passa agli strumenti.' : 'Partita in locale: passatevi il dispositivo. Draft dei tipi: il Blu comincia.');
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -189,8 +189,8 @@ io.on('connection', (socket) => {
       }
       seat(room, socket, color, data.token, cleanName(data.name));
       if (room.players.w && room.players.b && room.game.phase === 'lobby') {
-        room.game.phase = 'draft';
-        room.game.log.push('Entrambi in stanza. Draft dei tipi: scegliete a turno, il Blu comincia.');
+        G.startDraft(room.game);
+        room.game.log.push(room.game.mods.randomTypes ? 'Entrambi in stanza. Tipi a caso: si passa agli strumenti.' : 'Entrambi in stanza. Draft dei tipi: scegliete a turno, il Blu comincia.');
       }
     }
     cb({ ok: true, code: room.code });
@@ -228,7 +228,7 @@ io.on('connection', (socket) => {
     if (room.run) return 'Nella Scalata si riparte dal menu';
     room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;
-    room.game.phase = 'draft';
+    G.startDraft(room.game);
     // scambia i colori: chi era Rosso ora muove per primo
     if (!room.local) {
     const { w, b } = room.players;
