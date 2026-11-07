@@ -57,8 +57,24 @@
   function showHome(err) {
     S = null; roomCode = null;
     $('#home').hidden = false; $('#game').hidden = true; $('#scal').hidden = true;
+    showPanel(ui.panel || 'main');
     $('#homeErr').textContent = err || '';
   }
+  // menu della home: schermata principale con 4 pulsanti e sotto-schermate
+  function showPanel(name) {
+    ui.panel = name;
+    $('#home').classList.toggle('h-sub', name !== 'main');
+    document.querySelectorAll('#home .h-panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
+    const slot = document.querySelector(`#home .h-panel[data-panel="${name}"] [data-opts-slot]`);
+    const box = $('#optsBox');
+    if (box) { if (slot) slot.appendChild(box); else $('#optsHold').appendChild(box); }
+    const last = store('sm_lv');
+    document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.id === 'btnBot' + (last || '').charAt(0).toUpperCase() + (last || '').slice(1)));
+    $('#homeErr').textContent = '';
+    const home = $('#home'); if (home) home.scrollTop = 0;
+  }
+  for (const [id, p] of [['btnGoAmici', 'amici'], ['btnGoBot', 'bot'], ['btnGoAvv', 'avv'], ['btnGoLab', 'lab']]) document.getElementById(id).addEventListener('click', () => showPanel(p));
+  document.querySelectorAll('#home [data-back]').forEach((b) => b.addEventListener('click', () => showPanel('main')));
   function enterRoom(code) {
     roomCode = code;
     store('sm_room', code);
@@ -124,9 +140,9 @@
       if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
     });
   });
-  const startBot = (level) => socket.emit('createBot', { token, level, name: myName(), mods: getMods() }, (res) => {
+  const startBot = (level) => { store('sm_lv', level); socket.emit('createBot', { token, level, name: myName(), mods: getMods() }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
-  });
+  }); };
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
   $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
   $('#btnBotHard').addEventListener('click', () => startBot('hard'));
@@ -224,13 +240,15 @@
     el.hidden = false;
     if (win) confetti();
   }
-  $('#btnScal').addEventListener('click', showScal);
+  $('#btnScal').addEventListener('click', () => { ui.panel = 'avv'; showScal(); });
+  $('#btnLabRules').addEventListener('click', () => openDialog('#dlgRules', rulesText()));
+  $('#btnLabTypes').addEventListener('click', () => openDialog('#dlgTypes', typesTable()));
   $('#scal').addEventListener('click', (e) => {
     const b = e.target.closest('[data-sc]');
     if (!b) return;
     const r = runGet();
     switch (b.dataset.sc) {
-      case 'home': showHome(''); break;
+      case 'home': ui.panel = 'avv'; showHome(''); break;
       case 'pick': {
         if (!r.offer || !r.offer.includes(b.dataset.id)) break;
         r.bonuses.push(b.dataset.id); r.offer = null; r.stage++; r.msg = '';

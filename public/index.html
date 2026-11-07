@@ -27,8 +27,58 @@
     <p class="h-lead">Ogni pezzo ha un elemento. Trova il suo punto debole e dai scacco matto.</p>
     <div class="h-menu">
       <input id="nameInput" class="h-name" maxlength="14" placeholder="Il tuo nome (facoltativo)" autocomplete="nickname" aria-label="Il tuo nome">
-      <details id="optsBox" class="h-opts">
-        <summary>⚙️ Modificatori di partita <span id="optsOn" class="h-optson" hidden>attivi</span></summary>
+
+      <div class="h-panel" data-panel="main">
+        <button id="btnGoAmici" class="btn h-big" type="button"><i>👥</i><b>Con amici</b><small>Stanza online, codice, stesso dispositivo</small></button>
+        <button id="btnGoBot" class="btn h-big" type="button"><i>🤖</i><b>Contro il computer</b><small>Da Facile a Maestro</small></button>
+        <button id="btnGoAvv" class="btn h-big" type="button"><i>🏆</i><b>Avventure</b><small>Scalata e altre sfide da soli</small></button>
+        <button id="btnGoLab" class="btn h-big" type="button"><i>🧪</i><b>Laboratorio</b><small>Campo di prova, regole, tipi</small></button>
+        <button id="btnRules" class="link" type="button">Come si gioca</button>
+      </div>
+
+      <div class="h-panel" data-panel="amici" hidden>
+        <button class="link h-back" type="button" data-back>← Indietro</button>
+        <h2 class="h-ptitle">👥 Con amici</h2>
+        <button id="btnCreate" class="btn primary" type="button">Crea stanza online</button>
+        <div class="or">oppure entra in una stanza</div>
+        <form id="joinForm" class="joinrow">
+          <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">
+          <button class="btn" type="submit">Entra</button>
+        </form>
+        <div class="or">oppure</div>
+        <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
+        <div class="h-optslot" data-opts-slot></div>
+      </div>
+
+      <div class="h-panel" data-panel="bot" hidden>
+        <button class="link h-back" type="button" data-back>← Indietro</button>
+        <h2 class="h-ptitle">🤖 Contro il computer</h2>
+        <div class="botgrid">
+          <button id="btnBotEasy" class="btn h-lv h-lv-easy" type="button">Facile</button>
+          <button id="btnBotNormal" class="btn h-lv h-lv-normal" type="button">Normale</button>
+          <button id="btnBotHard" class="btn h-lv h-lv-hard" type="button">Difficile</button>
+          <button id="btnBotMaster" class="btn h-lv h-lv-master" type="button">Maestro</button>
+        </div>
+        <div class="h-optslot" data-opts-slot></div>
+      </div>
+
+      <div class="h-panel" data-panel="avv" hidden>
+        <button class="link h-back" type="button" data-back>← Indietro</button>
+        <h2 class="h-ptitle">🏆 Avventure</h2>
+        <button id="btnScal" class="btn h-big" type="button"><i>🏆</i><b>Scalata</b><small>8 scontri, un bonus dopo ogni vittoria</small></button>
+        <p class="h-hint">Altre modalità in arrivo.</p>
+      </div>
+
+      <div class="h-panel" data-panel="lab" hidden>
+        <button class="link h-back" type="button" data-back>← Indietro</button>
+        <h2 class="h-ptitle">🧪 Laboratorio</h2>
+        <button id="btnSandbox" class="btn h-big" type="button"><i>🧪</i><b>Campo di prova</b><small>Costruisci una posizione e provala</small></button>
+        <button id="btnLabRules" class="btn" type="button">Come si gioca</button>
+        <button id="btnLabTypes" class="btn" type="button">Tabella dei tipi</button>
+      </div>
+
+      <div id="optsHold" hidden>      <details id="optsBox" class="h-opts">
+        <summary>⚙️ Regole della partita <span id="optsOn" class="h-optson" hidden>attivi</span></summary>
         <label class="h-chk"><input type="checkbox" id="optLucky"> ✨ Caselle fortunate</label>
         <div id="optLuckyRow" class="h-optrow" hidden>
           <select id="optLuckyVis" aria-label="Visibilità delle caselle fortunate">
@@ -38,25 +88,8 @@
           </select>
         </div>
         <p class="h-hint">Vale per la prossima partita che crei: online, contro il bot o in locale. Una casella libera nelle righe centrali dà un bonus a chi ci arriva.</p>
-      </details>
-      <button id="btnCreate" class="btn primary" type="button">Crea stanza online</button>
-      <div class="or">oppure gioca contro il bot</div>
-      <div class="botgrid">
-        <button id="btnBotEasy" class="btn h-lv h-lv-easy" type="button">Facile</button>
-        <button id="btnBotNormal" class="btn h-lv h-lv-normal" type="button">Normale</button>
-        <button id="btnBotHard" class="btn h-lv h-lv-hard" type="button">Difficile</button>
-        <button id="btnBotMaster" class="btn h-lv h-lv-master" type="button">Maestro</button>
-      </div>
-      <button id="btnScal" class="btn" type="button">🏆 Scalata</button>
-      <button id="btnLocal" class="btn" type="button">Due giocatori sullo stesso dispositivo</button>
-      <button id="btnSandbox" class="btn" type="button">🧪 Campo di prova</button>
-      <div class="or">oppure entra in una stanza</div>
-      <form id="joinForm" class="joinrow">
-        <input id="codeInput" maxlength="5" placeholder="CODICE" autocomplete="off" autocapitalize="characters" aria-label="Codice stanza">
-        <button class="btn" type="submit">Entra</button>
-      </form>
+      </details></div>
       <p id="homeErr" class="err" role="alert"></p>
-      <button id="btnRules" class="link" type="button">Come si gioca</button>
     </div>
   </div>
 </section>
