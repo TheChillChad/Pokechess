@@ -5,6 +5,7 @@ const path = require('path');
 const { Server } = require('socket.io');
 const G = require('./game.js');
 const Bot = require('./bot.js');
+const Scalata = require('./public/scalata.js');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -112,16 +113,18 @@ io.on('connection', (socket) => {
   socket.on('createBot', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
-    const level = ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
-    const room = { code: newCode(), game: G.newGame(data.mods), players: { w: null, b: null }, touched: Date.now() };
-    rooms.set(room.code, room);
     const mine = Math.random() < 0.5 ? 'w' : 'b';
+    const run = data.run ? Scalata.normRun(data.run) : null; // Scalata: livello del bot e bonus dipendono dallo scontro
+    const level = run ? Scalata.STAGES[run.stage - 1].level : ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
+    const room = { code: newCode(), game: G.newGame(run ? null : data.mods, run && { ...run, color: mine }), players: { w: null, b: null }, touched: Date.now() };
+    if (run) { room.run = true; room.undoLeft = Scalata.has(run, 'seconda') ? 1 : 0; }
+    rooms.set(room.code, room);
     seat(room, socket, mine, data.token, cleanName(data.name));
     const bc = G.other(mine);
     room.players[bc] = { token: '__bot__', sid: null, bot: true };
     room.bot = { color: bc, level };
     room.game.phase = 'draft';
-    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level]}). Draft dei tipi: il Blu comincia.`);
+    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). Draft dei tipi: il Blu comincia.`);
     cb({ ok: true, code: room.code });
     broadcast(room);
   });
@@ -214,7 +217,7 @@ io.on('connection', (socket) => {
   }
 
   socket.on('draft', (d) => d && act((g, c) => G.draftPick(g, c, d.id, d.type)));
-  socket.on('items', (d) => d && act((g, c) => G.setItems(g, c, d.list)));
+  socket.on('items', (d) => d && act((g, c) => G.setItems(g, c, d.list, d.choices)));
   socket.on('move', (d) => d && act((g, c) => G.move(g, c, d.id, d.r, d.c)));
   socket.on('item', (d) => d && act((g, c) => G.useItem(g, c, d)));
   socket.on('promote', (d) => d && act((g, c) => G.choosePromotion(g, c, d.role)));
@@ -222,6 +225,7 @@ io.on('connection', (socket) => {
   socket.on('rematch', () => act((g, c, room) => {
     if (room.sandbox) return 'Nel campo di prova usa "Posizione iniziale"';
     if (g.phase !== 'over') return 'La partita non è finita';
+    if (room.run) return 'Nella Scalata si riparte dal menu';
     room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;
     room.game.phase = 'draft';
@@ -278,9 +282,12 @@ io.on('connection', (socket) => {
   socket.on('undo', () => {
     const room = rooms.get(socket.data.code);
     if (!room || socket.data.spectator || !(room.bot || room.local)) return;
+    if (room.run && room.game.phase === 'over') return socket.emit('errore', 'Lo scontro è finito');
+    if (room.run && !(room.undoLeft > 0)) return socket.emit('errore', 'Nella Scalata serve il bonus Seconda possibilità');
     const snap = room.snaps && room.snaps.pop();
     if (!snap) return socket.emit('errore', 'Niente da annullare');
     clearTimeout(room.botTimer); room.botTimer = null;
+    if (room.run) room.undoLeft--;
     room.game = snap;
     room.game.log.push('Mossa annullata.');
     broadcast(room);

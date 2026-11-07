@@ -2,6 +2,7 @@
 // Coordinate: r = riga 0..7 (0 = fondo del Rosso, 7 = fondo del Blu), c = colonna 0..7.
 // Colori interni: 'w' = Blu (muove per primo), 'b' = Rosso.
 const S = require('./public/shared.js');
+const SC = require('./public/scalata.js');
 
 const BACK_RANK = ['torre', 'cavallo', 'alfiere', 'regina', 're', 'alfiere', 'cavallo', 'torre'];
 const other = (c) => (c === 'w' ? 'b' : 'w');
@@ -22,7 +23,7 @@ function normMods(m) {
   return { lucky: l ? { vis: ['hidden', 'pos', 'full'].includes(l.vis) ? l.vis : 'pos' } : null };
 }
 
-function newGame(mods) {
+function newGame(mods, run) {
   mods = normMods(mods);
   const pieces = {};
   for (const color of ['w', 'b']) {
@@ -52,6 +53,7 @@ function newGame(mods) {
     mods,
     lucky: mods.lucky ? { sq: null, nextAt: LUCKY_FIRST } : null, // sq: { r, c, bonus }
     ply: 0, // mezze mosse giocate (serve alle caselle fortunate)
+    run: run && (run.color === 'w' || run.color === 'b') ? { ...SC.normRun(run), color: run.color, choices: {} } : null, // Scalata
   };
 }
 
@@ -310,23 +312,80 @@ function draftPick(g, color, pieceId, type) {
   return null;
 }
 
-function setItems(g, color, list) {
+// Kit di un lato: quanti strumenti si scelgono, quali si ricevono in più (Scalata) e di quanto si superano i limiti
+function kitInfo(g, color) {
+  return SC.kitFor(g.run, !!g.run && g.run.color === color, S.KIT_SIZE);
+}
+
+function setItems(g, color, list, choices) {
   if (g.phase !== 'items') return 'Non è il momento di scegliere gli strumenti';
   if (g.itemsReady[color]) return 'Hai già scelto';
-  if (!Array.isArray(list) || list.length !== S.KIT_SIZE || !list.every((i) => S.ITEM_IDS.includes(i))) {
-    return `Scegli esattamente ${S.KIT_SIZE} strumenti`;
+  const kit = kitInfo(g, color);
+  if (!Array.isArray(list) || list.length !== kit.picks || !list.every((i) => S.ITEM_IDS.includes(i))) {
+    return `Scegli esattamente ${kit.picks} strumenti`;
   }
   for (const id of S.ITEM_IDS) {
-    if (list.filter((i) => i === id).length > S.itemMax(id)) return `${S.ITEMS[id].label}: al massimo ${S.itemMax(id)} nel kit`;
+    if (list.filter((i) => i === id).length > S.itemMax(id) + kit.extraCap) return `${S.ITEMS[id].label}: al massimo ${S.itemMax(id) + kit.extraCap} nel kit`;
   }
-  g.items[color] = list.slice();
+  if (g.run && g.run.color === color) {
+    const err = checkChoices(g, color, choices);
+    if (err) return err;
+  }
+  g.items[color] = list.concat(kit.forced);
   g.itemsReady[color] = true;
   if (g.itemsReady.w && g.itemsReady.b) {
     g.phase = 'play';
     g.turn = 'w';
+    if (g.run) applyRun(g);
     log(g, 'Si parte! Muove il Blu.');
   }
   return null;
+}
+
+// ---------- Scalata ----------
+// Scelte dei bonus (Veterano, Sarto, Vivaio): vanno fatte insieme al kit
+function checkChoices(g, color, choices) {
+  choices = choices || {};
+  const out = {};
+  for (const { id, kind } of SC.choicesNeeded(g.run)) {
+    const c = choices[id];
+    const pid = kind === 'type' ? c && c.id : c;
+    const p = own(g, color, pid);
+    if (!p || p.role === 're') return `${SC.BONUSES[id].label}: scegli uno dei tuoi pezzi`;
+    if (kind === 'pawn' && p.role !== 'pedone') return `${SC.BONUSES[id].label}: scegli un pedone`;
+    if (kind === 'type') {
+      if (!S.TYPES.includes(c.type)) return `${SC.BONUSES[id].label}: scegli un tipo`;
+      out[id] = { id: pid, type: c.type };
+    } else out[id] = pid;
+  }
+  g.run.choices = out;
+  return null;
+}
+
+// All'inizio della partita: bonus del giocatore e vantaggi del bot
+function applyRun(g) {
+  const run = g.run, me = run.color, bot = other(me);
+  const mine = Object.values(g.pieces).filter((p) => p.color === me && p.alive && p.role !== 're');
+  const hp = (p, d) => { p.maxHp = Math.max(1, p.maxHp + d); p.hp = Math.max(1, p.hp + d); };
+  const n = (id) => SC.count(run, id);
+  for (const p of mine) {
+    if (p.role === 'pedone') hp(p, n('armatura') + 3 * n('pedine'));
+    if (p.role === 'regina' || p.role === 'torre') hp(p, 2 * n('cuore'));
+    if (p.role === 'regina') hp(p, 4 * n('acciaio') - 3 * n('patto'));
+    if (p.role === 'cavallo' || p.role === 'alfiere') p.atk += n('affilati');
+    p.atk += n('assalto');
+    hp(p, -n('assalto'));
+  }
+  if (n('pedine')) {
+    const b = mine.filter((p) => p.role === 'alfiere').sort((x, y) => y.c - x.c)[0];
+    if (b) b.alive = false; // perso per sempre: non va nel cimitero, il Revitalizzante non lo riporta
+  }
+  const ch = run.choices || {};
+  if (ch.veterano && g.pieces[ch.veterano]) g.pieces[ch.veterano].shield = true;
+  if (ch.sarto && g.pieces[ch.sarto.id]) g.pieces[ch.sarto.id].type = ch.sarto.type;
+  if (ch.vivaio && g.pieces[ch.vivaio]) { const p = g.pieces[ch.vivaio]; p.r = me === 'w' ? 5 : 2; p.hasMoved = true; }
+  const st = SC.STAGES[run.stage - 1];
+  for (const p of Object.values(g.pieces)) if (p.color === bot && p.alive && st.hp && st.hp[p.role]) hp(p, st.hp[p.role]);
 }
 
 // ---------- strumenti ----------
@@ -384,15 +443,16 @@ function applyItem(g, color, a) {
         log(g, `${team} lancia una Bomba su ${name(t)}: lo Scudo la blocca!`);
         event(g, t.r, t.c, 'Bloccato', 'block');
       } else {
-        t.hp = Math.max(0, t.hp - 3);
+        const bd = g.run && g.run.color === color && SC.has(g.run, 'pugno') ? 5 : 3;
+        t.hp = Math.max(0, t.hp - bd);
         if (t.hp === 0) {
           t.alive = false;
           g.graveyard[t.color].push(t.id);
-          log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP, sconfitto!`);
-          event(g, t.r, t.c, '−3', 'kill'); g.event.bomb = true;
+          log(g, `${team} lancia una Bomba su ${name(t)}: −${bd} HP, sconfitto!`);
+          event(g, t.r, t.c, `−${bd}`, 'kill'); g.event.bomb = true;
         } else {
-          log(g, `${team} lancia una Bomba su ${name(t)}: −3 HP (restano ${t.hp}).`);
-          event(g, t.r, t.c, '−3', 'hit'); g.event.bomb = true;
+          log(g, `${team} lancia una Bomba su ${name(t)}: −${bd} HP (restano ${t.hp}).`);
+          event(g, t.r, t.c, `−${bd}`, 'hit'); g.event.bomb = true;
         }
       }
       return null;
@@ -758,6 +818,8 @@ function publicState(room, color) {
     bot: room.bot ? { color: room.bot.color, level: room.bot.level } : null,
     local: !!room.local,
     sandbox: !!g.sandbox,
+    run: g.run ? { stage: g.run.stage, bonuses: g.run.bonuses, color: g.run.color, choices: SC.choicesNeeded(g.run), undoLeft: room.undoLeft || 0 } : null,
+    kit: kitInfo(g, color),
     mods: g.mods,
     lucky: g.lucky && g.mods.lucky ? { vis: g.mods.lucky.vis, sq: g.lucky.sq && g.mods.lucky.vis !== 'hidden' ? { r: g.lucky.sq.r, c: g.lucky.sq.c, bonus: g.mods.lucky.vis === 'full' ? g.lucky.sq.bonus : null } : null } : null,
     spectators: room.spectators ? room.spectators.size : 0,
@@ -785,7 +847,7 @@ function publicState(room, color) {
 }
 
 module.exports = {
-  newGame, draftPick, setItems, move, choosePromotion, useItem, resign,
+  newGame, kitInfo, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
   actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };

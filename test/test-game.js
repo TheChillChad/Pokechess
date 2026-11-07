@@ -594,4 +594,81 @@ t('campo di prova: si gioca la posizione costruita (danni e tipi come nel gioco)
   assert.ok(!tr.alive && re.length === 2);
 });
 
+console.log('Scalata');
+const SC = require('../public/scalata.js');
+function runGame(bonuses, stage, choices) {
+  const g = G.newGame(null, { stage: stage || 1, bonuses, color: 'w' });
+  g.phase = 'draft';
+  S.TYPES.forEach(() => {});
+  for (const color of ['w', 'b']) { let i = 0; for (const p of Object.values(g.pieces)) if (p.color === color && p.role !== 're') p.type = S.TYPES[Math.floor(i++ / 2) % 8]; }
+  g.phase = 'items';
+  const kw = G.kitInfo(g, 'w'), kb = G.kitInfo(g, 'b');
+  const pick = (k) => ['pozione', 'scudo', 'cristallo', 'bomba', 'cambio', 'metamorfosi', 'paralisi'].slice(0, k.picks);
+  return { g, kw, kb, errW: () => G.setItems(g, 'w', pick(kw), choices), errB: () => G.setItems(g, 'b', pick(kb)) };
+}
+t('scalata: senza bonus il kit è di 3 e nessuna statistica cambia', () => {
+  const r = runGame([], 1); assert.strictEqual(r.kw.picks, 3);
+  assert.strictEqual(r.errW(), null); assert.strictEqual(r.errB(), null);
+  assert.strictEqual(r.g.phase, 'play'); assert.strictEqual(r.g.pieces.w8.hp, S.ROLES.pedone.hp);
+});
+t('scalata: bonus di HP e attacco (Armatura, Cuore forte, Affilati, Assalto)', () => {
+  const r = runGame(['armatura', 'cuore', 'affilati', 'assalto'], 1); r.errW(); r.errB();
+  const P = r.g.pieces; // w0 torre, w1 cavallo, w3 regina, w8 pedone
+  assert.strictEqual(P.w8.hp, S.ROLES.pedone.hp + 1 - 1); assert.strictEqual(P.w8.atk, S.ROLES.pedone.atk + 1);
+  assert.strictEqual(P.w3.hp, S.ROLES.regina.hp + 2 - 1); assert.strictEqual(P.w0.maxHp, S.ROLES.torre.hp + 2 - 1);
+  assert.strictEqual(P.w1.atk, S.ROLES.cavallo.atk + 2); assert.strictEqual(P.b8.hp, S.ROLES.pedone.hp, 'il bot non cambia');
+});
+t('scalata: Zaino, Pietra, Scorta, Patto e Regina d\'acciaio cambiano il kit', () => {
+  assert.strictEqual(runGame(['zaino'], 1).kw.picks, 4);
+  assert.strictEqual(runGame(['acciaio'], 1).kw.picks, 2);
+  const r = runGame(['patto', 'pietra', 'scorta'], 1); assert.strictEqual(r.kw.picks, 5);
+  assert.strictEqual(r.errW(), null); r.errB();
+  assert.strictEqual(r.g.items.w.length, 7); assert.ok(r.g.items.w.includes('pietra'));
+  assert.strictEqual(r.g.pieces.w3.hp, S.ROLES.regina.hp - 3);
+  assert.ok(G.setItems(runGame(['zaino'], 1).g, 'w', ['pozione', 'scudo', 'cristallo']), 'kit di 3 con lo Zaino: rifiutato');
+});
+t('scalata: i limiti del kit si superano solo con gli strumenti extra', () => {
+  const a = runGame([], 1);
+  assert.ok(G.setItems(a.g, 'w', ['scudo', 'scudo', 'pozione']), 'senza bonus: 2 Scudi non vanno');
+  const b = runGame(['zaino'], 1);
+  assert.strictEqual(G.setItems(b.g, 'w', ['scudo', 'scudo', 'pozione', 'cristallo']), null);
+});
+t('scalata: Veterano, Sarto e Vivaio chiedono una scelta valida', () => {
+  const r = runGame(['veterano', 'sarto', 'vivaio'], 1, null);
+  assert.ok(r.errW(), 'senza scelte: rifiutato');
+  const ok = { veterano: 'w1', sarto: { id: 'w3', type: 'psico' }, vivaio: 'w9' };
+  const r2 = runGame(['veterano', 'sarto', 'vivaio'], 1, ok); assert.strictEqual(r2.errW(), null); r2.errB();
+  assert.ok(r2.g.pieces.w1.shield); assert.strictEqual(r2.g.pieces.w3.type, 'psico'); assert.strictEqual(r2.g.pieces.w9.r, 5);
+  assert.ok(runGame(['vivaio'], 1, { vivaio: 'w3' }).errW(), 'Vivaio vuole un pedone');
+  assert.ok(runGame(['veterano'], 1, { veterano: 'w4' }).errW(), 'non il Re');
+  assert.ok(runGame(['veterano'], 1, { veterano: 'b1' }).errW(), 'non un pezzo avversario');
+});
+t('scalata: Pedine d\'oro toglie un Alfiere senza metterlo nel cimitero', () => {
+  const r = runGame(['pedine'], 1); r.errW(); r.errB();
+  assert.strictEqual(Object.values(r.g.pieces).filter((p) => p.color === 'w' && p.role === 'alfiere' && p.alive).length, 1);
+  assert.strictEqual(r.g.graveyard.w.length, 0); assert.strictEqual(r.g.pieces.w8.hp, S.ROLES.pedone.hp + 3);
+});
+t('scalata: Pugno di ferro (Bomba da 5) e Scudo al bot', () => {
+  const r = runGame(['pugno'], 1); r.errW(); r.errB();
+  assert.ok(r.g.items.b.includes('scudo') && r.g.items.b.length === 4);
+  r.g.items.w.push('bomba');
+  const t0 = r.g.pieces.b9; t0.hp = 8; t0.maxHp = 8;
+  assert.strictEqual(G.useItem(r.g, 'w', { item: 'bomba', id: 'b9' }), null); assert.strictEqual(t0.hp, 3);
+});
+t('scalata: i bot degli ultimi scontri hanno vantaggi', () => {
+  const r = runGame([], 8); r.errW(); r.errB();
+  assert.strictEqual(r.g.pieces.b3.hp, S.ROLES.regina.hp + 2); assert.strictEqual(r.g.pieces.b8.hp, S.ROLES.pedone.hp + 1);
+  assert.strictEqual(r.g.items.b.length, 5);
+  const r6 = runGame([], 6); r6.errW(); r6.errB(); assert.strictEqual(r6.g.pieces.b3.hp, S.ROLES.regina.hp);
+});
+t('scalata: normRun e offerta dei bonus', () => {
+  assert.deepStrictEqual(SC.normRun({ stage: 99, bonuses: ['zaino', 'zaino', 'zaino', 'finto'] }), { stage: 8, bonuses: ['zaino', 'zaino'] });
+  for (let i = 0; i < 50; i++) {
+    const o = SC.offer({ bonuses: ['rivincita', 'pietra'] });
+    assert.strictEqual(o.length, 3); assert.strictEqual(new Set(o).size, 3);
+    assert.ok(!o.includes('rivincita') && !o.includes('pietra'), 'bonus già al massimo non si offrono');
+  }
+});
+t('scalata: senza corsa niente cambia', () => { const g = G.newGame(); assert.strictEqual(g.run, null); assert.strictEqual(G.kitInfo(g, 'w').picks, 3); });
+
 console.log(`\n${passed} test passati`);
