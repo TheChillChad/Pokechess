@@ -746,7 +746,7 @@ t('handicap: il bot sceglie il kit giusto e la partita va avanti', () => {
 console.log('Sopravvivenza');
 const SV = require('../public/survival.js');
 const svGame = (random) => { const g = G.newGame({ lucky: { vis: 'full' } }, null, { random }); G.startDraft(g); return g; };
-const svStart = (items) => { const g = svGame(true); assert.strictEqual(G.setItems(g, 'w', items || ['pozione', 'pozione', 'pozione', 'bomba', 'bomba', 'scudo']), null); return g; };
+const svStart = (items) => { const g = svGame(true); assert.strictEqual(G.setItems(g, 'w', items || ['pozione', 'pozione', 'pozione', 'bomba', 'bomba', 'scudo']), null); assert.strictEqual(g.phase, 'prep'); assert.strictEqual(G.startWave(g, 'w'), null); return g; };
 const svEnemies = (g) => Object.values(g.pieces).filter((p) => p.color === 'b' && p.alive);
 t('sopravvivenza: parte con la sola tua squadra, kit da 6, tipi a caso max 2 per tipo', () => {
   const g = svGame(true);
@@ -774,7 +774,7 @@ t('sopravvivenza: l\'ondata 1 compare nelle prime file nemiche, il nemico muove 
 t('sopravvivenza: budget e limiti delle ondate rispettati (30 ondate)', () => {
   for (let w = 1; w <= 30; w++) for (let k = 0; k < 20; k++) {
     const g = svStart(); g.surv.wave = w - 1; for (const p of Object.values(g.pieces)) if (p.color === 'b') delete g.pieces[p.id];
-    g.phase = 'over'; g.surv.state = 'cleared'; assert.strictEqual(G.nextWave(g, 'w', 'now'), null);
+    g.phase = 'over'; g.surv.state = 'cleared'; assert.strictEqual(G.nextWave(g, 'w', 'now'), null); assert.strictEqual(G.startWave(g, 'w'), null);
     const en = svEnemies(g); const roles = en.map((p) => p.role);
     const cost = roles.reduce((a, r) => a + SV.COST[r], 0);
     assert.ok(cost <= SV.budget(w) && en.length <= 24, `ondata ${w}: costo ${cost}`);
@@ -791,6 +791,7 @@ t('sopravvivenza: sconfiggere tutti i nemici supera l\'ondata, la squadra torna 
   assert.strictEqual(g.phase, 'over'); assert.strictEqual(g.winner, 'w'); assert.strictEqual(g.surv.state, 'cleared'); assert.strictEqual(g.surv.cleared, 1);
   assert.strictEqual(g.surv.bonusDue, false);
   assert.strictEqual(G.nextWave(g, 'w'), null);
+  assert.strictEqual(g.phase, 'prep'); assert.strictEqual(G.startWave(g, 'w'), null);
   assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.turn, 'b'); assert.strictEqual(g.surv.wave, 2);
   assert.strictEqual(g.pieces.w10.hp, 1, 'gli HP persi restano'); assert.strictEqual(g.pieces.w12.alive, false, 'i caduti restano caduti');
   assert.deepStrictEqual([g.pieces.w3.r, g.pieces.w3.c], [7, 3], 'tornato alla casa');
@@ -804,11 +805,11 @@ t('sopravvivenza: ogni 3 ondate un bonus (subito +2 HP oppure Cura di squadra da
   assert.strictEqual(g.surv.cleared, 3); assert.strictEqual(g.surv.bonusDue, true);
   assert.ok(G.nextWave(g, 'w'), 'senza scelta non si va avanti'); assert.ok(G.nextWave(g, 'w', 'boh'));
   const g2 = structuredClone(g);
-  assert.strictEqual(G.nextWave(g, 'w', 'now'), null);
+  assert.strictEqual(G.nextWave(g, 'w', 'now'), null); assert.strictEqual(g.phase, 'prep');
   assert.strictEqual(g.pieces.w9.hp, 3); assert.strictEqual(g.pieces.w10.hp, 4, 'non oltre il massimo');
   assert.strictEqual(G.nextWave(g2, 'w', 'keep'), null);
   assert.ok(g2.items.w.includes('curasq')); assert.strictEqual(g2.pieces.w9.hp, 1);
-  g2.turn = 'w';
+  assert.strictEqual(G.startWave(g2, 'w'), null); g2.turn = 'w';
   assert.strictEqual(G.useItem(g2, 'w', { item: 'curasq' }), null);
   assert.strictEqual(g2.pieces.w9.hp, 2); assert.ok(!g2.items.w.includes('curasq')); assert.strictEqual(g2.turn, 'b', 'costa il turno');
 });
@@ -841,6 +842,36 @@ t('sopravvivenza: la casella fortunata compare vicino al Re, la prende solo il R
   assert.strictEqual(g.lucky.sq, null); assert.strictEqual(g.items.w.length, n0 + 1);
   for (let i = 0; i < 12; i++) { const c = g.turn; const lm = G.legalMoves(g, c); const id = Object.keys(lm).find((k) => lm[k].some((m) => m.kind === 'move') && g.pieces[k].role !== 're'); if (!id) break; const m = lm[id].find((x) => x.kind === 'move'); if (G.move(g, c, id, m.r, m.c)) break; if (g.phase !== 'play') break; }
   assert.strictEqual(g.lucky.sq, null, 'una sola casella per ondata');
+});
+t('sopravvivenza: prima dell\'ondata sistemi i pezzi nelle prime 3 file (pedoni non nella prima), poi Via', () => {
+  const g = svGame(true); G.setItems(g, 'w', ['pozione', 'pozione', 'pozione', 'bomba', 'bomba', 'scudo']);
+  assert.strictEqual(g.phase, 'prep'); assert.strictEqual(g.surv.wave, 0);
+  assert.strictEqual(svEnemies(g).length, 0, 'i nemici non si vedono prima');
+  assert.strictEqual(G.placePiece(g, 'w', 'w3', 5, 4), null); // regina in terza fila
+  assert.deepStrictEqual([g.pieces.w3.r, g.pieces.w3.c], [5, 4]);
+  assert.ok(G.placePiece(g, 'w', 'w3', 4, 4), 'solo prime 3 file');
+  assert.ok(G.placePiece(g, 'w', 'w8', 7, 0), 'pedone non in prima fila (e la torre sarebbe scambiata)');
+  assert.strictEqual(G.placePiece(g, 'w', 'w4', 7, 3), null, 'scambio Re e Regina: il Re va dove stava la Regina');
+  assert.deepStrictEqual([g.pieces.w4.r, g.pieces.w4.c], [7, 3]); assert.deepStrictEqual([g.pieces.w3.r, g.pieces.w3.c], [5, 4]);
+  assert.strictEqual(G.placePiece(g, 'w', 'w8', 5, 0), null, 'pedone in terza fila'); // w8 era (6,0)
+  assert.strictEqual(G.placePiece(g, 'w', 'w9', 6, 0), null, 'scambia con chi c\'è (nessuno ora: w8 è salito)');
+  assert.ok(G.placePiece(g, 'b', 'w3', 6, 4), 'solo il giocatore');
+  assert.ok(G.nextWave(g, 'w'), 'nextWave non vale in prep');
+  assert.strictEqual(G.startWave(g, 'w'), null);
+  assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.turn, 'b');
+  assert.strictEqual(g.pieces.w4.hasMoved, true, 'il Re fuori casa non arrocca'); assert.strictEqual(g.pieces.w8.hasMoved, true, 'pedone in 3ª fila: niente doppio passo');
+  assert.strictEqual(g.pieces.w0.hasMoved, false, 'la Torre in casa può ancora arroccare');
+  assert.ok(G.placePiece(g, 'w', 'w3', 5, 5), 'a ondata in corso non si sposta');
+});
+t('sopravvivenza: le posizioni scelte non si ripetono: dopo l\'ondata si riparte dalle case ma si può risistemare', () => {
+  const g = svStart();
+  for (const p of svEnemies(g)) p.alive = false; g.turn = 'w'; g.items.w.push('bomba');
+  g.pieces.b900 = { ...g.pieces.w8, id: 'b900', color: 'b', alive: true, hp: 1, r: 1, c: 0 };
+  assert.strictEqual(G.useItem(g, 'w', { item: 'bomba', id: 'b900' }), null);
+  assert.strictEqual(G.nextWave(g, 'w'), null); assert.strictEqual(g.phase, 'prep');
+  assert.deepStrictEqual([g.pieces.w3.r, g.pieces.w3.c], [7, 3]);
+  G.placePiece(g, 'w', 'w3', 5, 3); assert.strictEqual(G.resetPlacement(g, 'w'), null);
+  assert.deepStrictEqual([g.pieces.w3.r, g.pieces.w3.c], [7, 3]);
 });
 t('sopravvivenza: perdere il Re (matto) finisce la corsa', () => {
   const g = svStart();

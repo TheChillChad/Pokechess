@@ -299,6 +299,10 @@
     const h = { sel: null, move: {}, atk: {}, pick: {}, last: {} };
     if (S.lastMove) { h.last[S.lastMove.from.join(',')] = 1; h.last[S.lastMove.to.join(',')] = 1; }
     if (S.phase === 'draft' && ui.draftPiece) h.sel = ui.draftPiece;
+    if (S.phase === 'prep' && ui.prepSel && byId(ui.prepSel)) {
+      const sp = byId(ui.prepSel); h.sel = sp.id;
+      for (const r of [5, 6, 7]) for (let c = 0; c < 8; c++) if (!(sp.role === 'pedone' && r === 7) && !(pieceAt(r, c) && pieceAt(r, c).id === sp.id)) h.pick[r + ',' + c] = 1;
+    }
     if (myTurn()) {
       if (ui.item) itemTargets(h);
       else if (ui.sel) {
@@ -341,12 +345,12 @@
 
   function renderTop() {
     const o = opp();
-    const lv = S.surv ? `🌊 Ondata ${S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const lv = S.surv ? `🌊 Ondata ${S.phase === 'prep' ? S.surv.wave + 1 : S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
     const modPill = S.lucky && !S.surv ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
-    const survPill = S.surv ? `<span class="pill" title="Nemici rimasti">⚔️ ${S.surv.enemies} nemici · superate ${S.surv.cleared}</span>` : '';
+    const survPill = S.surv ? `<span class="pill" title="Nemici rimasti">⚔️ ${S.phase === 'prep' ? '' : S.surv.enemies + ' nemici · '}superate ${S.surv.cleared}</span>` : '';
     const runPill = S.run ? `<span class="pill" title="Scalata">🏆 Scontro ${S.run.stage}/${Scalata.STAGE_COUNT}</span>` : '';
     const modPill2 = S.mods && S.mods.randomTypes ? '<span class="pill" title="Modificatore attivo: tipi a caso, senza draft">🎲 Tipi a caso</span>' : '';
     const hc = S.mods && S.mods.handicap;
@@ -385,7 +389,9 @@
       main = S.local ? `Tocca al ${teamName(S.you)}: assegna un tipo` : S.turn === S.you ? 'Tocca a te: assegna un tipo' : S.bot ? 'Il bot sta scegliendo…' : `Sta scegliendo il ${teamName(S.turn)}`;
       sub = `Draft dei tipi ${S.picks}/${Sh.DRAFT_PICKS}` + (again ? ' · sceglie due volte di fila' : '');
     } else if (S.phase === 'items') {
-      main = S.local ? `Tocca al ${teamName(S.you)}: scegli 3 strumenti` : 'Scegli i tuoi 3 strumenti'; sub = S.local ? 'Passate il dispositivo: l\'altro non deve guardare' : 'Poi si parte'; dot = null;
+      main = S.local ? `Tocca al ${teamName(S.you)}: scegli 3 strumenti` : `Scegli i tuoi ${S.kit.picks} strumenti`; sub = S.local ? 'Passate il dispositivo: l\'altro non deve guardare' : 'Poi si parte'; dot = null;
+    } else if (S.phase === 'prep') {
+      main = `Ondata ${S.surv.wave + 1}: sistema la squadra`; sub = 'Prime 3 file, poi premi Via'; dot = 'w';
     } else if (S.phase === 'play') {
       const chk = !!(S.check && S.check[S.turn]);
       if (S.pendingBy) main = S.pendingBy === S.you ? 'Scegli la promozione del pedone' : `Il ${teamName(S.pendingBy)} sta promuovendo`;
@@ -439,7 +445,7 @@
         if (S.sandbox && ui.sb.mode === 'edit' && ui.sb.sq && ui.sb.sq[0] === r && ui.sb.sq[1] === c) cls.push('pick');
         const lk = S.lucky && S.lucky.sq && S.lucky.sq.r === r && S.lucky.sq.c === c ? S.lucky.sq : null;
         if (lk) cls.push('lucky');
-        if (p && p.color === S.you && (S.phase === 'draft' || S.legal[p.id])) cls.push('clickable');
+        if (p && p.color === S.you && (S.phase === 'draft' || S.phase === 'prep' || S.legal[p.id])) cls.push('clickable');
         let inner = '';
         if (dc === 0) inner += `<span class="coord rk">${8 - r}</span>`;
         if (dr === 7) inner += `<span class="coord f">${'abcdefgh'[c]}</span>`;
@@ -571,6 +577,7 @@
     if (S.phase === 'lobby') html += lobbyPanel();
     else if (S.phase === 'draft') html += draftPanel();
     else if (S.phase === 'items') html += itemsPanel();
+    else if (S.phase === 'prep') html += prepPanel() + playPanel();
     else html += playPanel();
     if (S.phase !== 'lobby' && S.phase !== 'items') html += infoPanel();
     html += logPanel();
@@ -578,7 +585,7 @@
   }
 
   function spectatorItems() {
-    if (S.phase !== 'play' && S.phase !== 'over') return '';
+    if (S.phase !== 'play' && S.phase !== 'over' && S.phase !== 'prep') return '';
     const row = (c) => {
       const list = S.items[c] || [];
       const n = Sh.ITEM_IDS.map((i) => ({ i, n: list.filter((x) => x === i).length })).filter((x) => x.n);
@@ -667,6 +674,22 @@
 
   // Sopravvivenza: record personale (nel browser), fine ondata e fine corsa
   const survBest = () => { try { return +store('sm_survbest') || 0; } catch (e) { return 0; } };
+  function survAct(a) {
+    ui.endDismissed = false; ui.prepSel = null;
+    if (a === 'waveNext') socket.emit('wave', {});
+    else if (a === 'waveNow') socket.emit('wave', { choice: 'now' });
+    else if (a === 'waveKeep') socket.emit('wave', { choice: 'keep' });
+    else if (a === 'ready') socket.emit('ready');
+    else if (a === 'placeReset') socket.emit('placeReset');
+    else if (a === 'survNew') { const r = S.surv.random; $('#endcard').hidden = true; socket.emit('leave'); store('sm_room', null); startSurv($('#survRandom') ? $('#survRandom').checked : r); }
+  }
+  const SURV_ACTS = ['waveNext', 'waveNow', 'waveKeep', 'ready', 'placeReset', 'survNew'];
+  function prepPanel() {
+    const sv = S.surv;
+    return `<div class="box"><h3>🌊 Ondata ${sv.wave + 1}: sistema la squadra</h3>
+      <p>Tocca un tuo pezzo e poi una casella delle <b>prime 3 file</b> (se è occupata dai tuoi pezzi, li scambi). I pedoni non possono stare nella prima fila. I nemici compariranno solo dopo il Via e <b>muovono per primi</b>.</p>
+      <div class="row"><button class="btn primary" type="button" data-act="ready">Via!</button><button class="btn" type="button" data-act="placeReset">Posizione iniziale</button></div></div>`;
+  }
   function survActions() {
     const sv = S.surv;
     if (sv.state === 'cleared') {
@@ -808,6 +831,15 @@
       else ui.inspect = p ? p.id : null;
       return render();
     }
+    if (S.phase === 'prep' && S.surv) {
+      const sel = ui.prepSel && byId(ui.prepSel);
+      if (sel && p && p.id === sel.id) ui.prepSel = null;
+      else if (sel && [5, 6, 7].includes(r) && !(sel.role === 'pedone' && r === 7)) { socket.emit('place', { id: sel.id, r, c }); ui.prepSel = null; }
+      else if (p && p.color === S.you) ui.prepSel = p.id;
+      else ui.prepSel = null;
+      ui.inspect = p ? p.id : null;
+      return render();
+    }
     if (S.phase !== 'play') { ui.inspect = p ? p.id : null; return render(); }
     if (myTurn() && ui.item) return itemClick(p, r, c);
     if (myTurn() && ui.sel) {
@@ -870,6 +902,7 @@
       case 'drawNo': socket.emit('drawReply', { accept: false }); break;
       case 'undo': socket.emit('undo'); break;
       case 'home': leaveRoom(); break;
+      default: if (SURV_ACTS.includes(d.act)) survAct(d.act);
     }
   });
 
@@ -890,10 +923,7 @@
     if (a === 'rematch') { ui.endDismissed = false; socket.emit('rematch'); }
     else if (a === 'home') leaveRoom();
     else if (a === 'scal') goScal();
-    else if (a === 'waveNext') { ui.endDismissed = false; socket.emit('wave', {}); }
-    else if (a === 'waveNow') { ui.endDismissed = false; socket.emit('wave', { choice: 'now' }); }
-    else if (a === 'waveKeep') { ui.endDismissed = false; socket.emit('wave', { choice: 'keep' }); }
-    else if (a === 'survNew') { const r = S.surv.random; ui.endDismissed = false; $('#endcard').hidden = true; socket.emit('leave'); store('sm_room', null); startSurv($('#survRandom') ? $('#survRandom').checked : r); }
+    else if (SURV_ACTS.includes(a)) survAct(a);
     else if (a === 'undo') socket.emit('undo');
     else if (a === 'sbEdit') { ui.sb.mode = 'edit'; render(); }
     else if (a === 'review') { ui.endDismissed = true; $('#endcard').hidden = true; }

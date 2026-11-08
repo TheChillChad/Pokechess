@@ -237,6 +237,9 @@ io.on('connection', (socket) => {
   socket.on('move', (d) => d && act((g, c) => G.move(g, c, d.id, d.r, d.c)));
   socket.on('item', (d) => d && act((g, c) => G.useItem(g, c, d)));
   socket.on('wave', (d) => act((g, c, room) => (room.surv ? G.nextWave(g, c, d && d.choice) : 'Non disponibile')));
+  socket.on('place', (d) => act((g, c, room) => (room.surv && d ? G.placePiece(g, c, String(d.id), +d.r, +d.c) : 'Non disponibile')));
+  socket.on('placeReset', () => act((g, c, room) => (room.surv ? G.resetPlacement(g, c) : 'Non disponibile')));
+  socket.on('ready', () => act((g, c, room) => (room.surv ? G.startWave(g, c) : 'Non disponibile')));
   socket.on('promote', (d) => d && act((g, c) => G.choosePromotion(g, c, d.role)));
   socket.on('resign', () => act((g, c) => G.resign(g, c)));
   socket.on('rematch', () => act((g, c, room) => {

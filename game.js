@@ -384,7 +384,7 @@ function setItems(g, color, list, choices) {
   g.items[color] = list.concat(kit.forced);
   g.itemsReady[color] = true;
   if (g.itemsReady.w && g.itemsReady.b) {
-    if (g.surv) { spawnWave(g); return null; }
+    if (g.surv) { startPrep(g); return null; }
     g.phase = 'play';
     g.turn = 'w';
     if (g.run) applyRun(g);
@@ -415,13 +415,55 @@ function waveRoles(w) {
   }
   return out;
 }
+// Prima di ogni ondata (anche la prima): fase «prep», sistemi i tuoi pezzi nelle prime 3 file
+function startPrep(g) {
+  const sv = g.surv;
+  sv.state = 'prep';
+  sv.bonusDue = false;
+  for (const id of Object.keys(g.pieces)) if (g.pieces[id].color === 'b') delete g.pieces[id];
+  g.graveyard.b = [];
+  for (const p of Object.values(g.pieces)) { // posizione iniziale di partenza: puoi cambiarla
+    if (p.color !== 'w' || !p.alive) continue;
+    [p.r, p.c] = survHome(p.id);
+    p.hasMoved = false; p.frozen = false; p.rage = 0; p.guard = 0;
+  }
+  if (g.lucky) { g.lucky.sq = null; g.lucky.used = false; }
+  g.phase = 'prep';
+  g.turn = 'w';
+  g.winner = null; g.reason = null; g.pending = null; g.shieldLock = null; g.freeUsed = false; g.lastMove = null;
+  log(g, `Ondata ${sv.wave + 1}: sistema i tuoi pezzi nelle prime 3 file, poi premi Via.`);
+}
+const PREP_ROWS = [5, 6, 7];
+// sposta (o scambia) un tuo pezzo; pedoni mai nella prima fila (la riga 7)
+function placePiece(g, color, id, r, c) {
+  if (!g.surv || g.phase !== 'prep' || color !== 'w') return 'Non è il momento di sistemare i pezzi';
+  const p = g.pieces[id];
+  if (!p || p.color !== 'w' || !p.alive) return 'Pezzo non valido';
+  if (!PREP_ROWS.includes(r) || !(c >= 0 && c < 8)) return 'Solo nelle prime 3 file';
+  const other = Object.values(g.pieces).find((q) => q.alive && q.id !== id && q.r === r && q.c === c);
+  if (other && other.color !== 'w') return 'Casella occupata';
+  const okSq = (q, rr) => !(q.role === 'pedone' && rr === 7);
+  if (!okSq(p, r)) return 'I pedoni non possono stare nella prima fila';
+  if (other && !okSq(other, p.r)) return 'I pedoni non possono stare nella prima fila';
+  if (other) { other.r = p.r; other.c = p.c; }
+  p.r = r; p.c = c;
+  return null;
+}
+function resetPlacement(g, color) {
+  if (!g.surv || g.phase !== 'prep' || color !== 'w') return 'Non disponibile';
+  for (const p of Object.values(g.pieces)) if (p.color === 'w' && p.alive) [p.r, p.c] = survHome(p.id);
+  return null;
+}
+// «Via»: compaiono i nemici (a caso, dove non li vedi prima) e il nemico muove per primo
+function startWave(g, color) {
+  if (!g.surv || g.phase !== 'prep' || color !== 'w') return 'Non disponibile';
+  spawnWave(g);
+  return null;
+}
 function spawnWave(g) {
   const sv = g.surv;
   sv.wave++;
   sv.state = 'play';
-  sv.bonusDue = false;
-  for (const id of Object.keys(g.pieces)) if (g.pieces[id].color === 'b') delete g.pieces[id];
-  g.graveyard.b = [];
   const roles = waveRoles(sv.wave);
   const big = roles.filter((r) => r !== 'pedone'), pawns = roles.filter((r) => r === 'pedone');
   const sqBig = shuffled([0, 1].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c])));
@@ -437,16 +479,14 @@ function spawnWave(g) {
   for (const role of big) { const sq = sqBig.shift(); if (!sq) break; taken.add(sq[0] * 8 + sq[1]); place(role, sq[0], sq[1]); }
   const sqPawn = shuffled([1, 2].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c]))).filter(([r, c]) => !taken.has(r * 8 + c));
   for (const role of pawns) { const sq = sqPawn.shift(); if (sq) place(role, sq[0], sq[1]); }
-  // la tua squadra torna alle caselle di partenza
+  // Re e Torri fuori casa non possono arroccare; i pedoni non in seconda fila non fanno il doppio passo
   for (const p of Object.values(g.pieces)) {
     if (p.color !== 'w' || !p.alive) continue;
-    [p.r, p.c] = survHome(p.id);
-    p.hasMoved = false; p.frozen = false; p.rage = 0; p.guard = 0;
+    p.hasMoved = p.role === 'pedone' ? p.r !== 6 : !isHome(p.role, 'w', p.r, p.c);
   }
   if (g.lucky) { g.lucky.sq = null; g.lucky.used = false; g.lucky.nextAt = (g.ply || 0) + 4; }
   g.phase = 'play';
   g.turn = 'b'; // il nemico muove per primo
-  g.winner = null; g.reason = null; g.pending = null; g.shieldLock = null; g.freeUsed = false; g.lastMove = null;
   log(g, `Ondata ${sv.wave}: ${roles.length} nemici (${roles.length ? [...new Set(roles)].map((r) => roles.filter((x) => x === r).length + ' ' + S.ROLES[r].label.toLowerCase()).join(', ') : ''}). Muove il Rosso.`);
 }
 // il giocatore sceglie il bonus (se dovuto) e passa all'ondata successiva
@@ -464,7 +504,7 @@ function nextWave(g, color, choice) {
       log(g, 'Bonus: ricevi una Cura di squadra da usare quando vuoi.');
     } else return 'Scegli il bonus: usalo subito o tienilo';
   }
-  spawnWave(g);
+  startPrep(g);
   return null;
 }
 // Fine ondata (tutti i nemici sconfitti)
@@ -1019,7 +1059,7 @@ function publicState(room, color) {
 }
 
 module.exports = {
-  newGame, kitInfo, startDraft, nextWave, draftPick, setItems, move, choosePromotion, useItem, resign,
+  newGame, kitInfo, startDraft, nextWave, placePiece, resetPlacement, startWave, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
   actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };
