@@ -53,9 +53,12 @@
     paralisi: { icon: '⚡', label: 'Paralisi', max: 1, active: true, free: true, desc: 'Un pezzo avversario (non il Re) non può muoversi né attaccare al suo prossimo turno. Non costa il turno: poi muovi un pezzo.' },
     metamorfosi: { icon: '🦋', label: 'Metamorfosi', active: true, desc: 'Cambia il tipo di un tuo pezzo (non il Re) con un tipo a scelta.' },
     bomba: { icon: '💣', label: 'Bomba', active: true, desc: 'Infligge 3 danni fissi (senza tipi) a un pezzo avversario, anche lontano. Il Re non si può colpire.' },
+    curasq: { icon: '💗', label: 'Cura di squadra', active: true, desc: '+1 HP a tutti i tuoi pezzi feriti. Solo Sopravvivenza.' },
     pietra: { icon: '💎', label: 'Pietra Evolutiva', active: false, desc: 'Si usa da sola: quando un tuo pedone arriva in fondo scegli Regina, Torre, Alfiere o Cavallo. Senza Pietra diventa Cavallo.' },
   };
   const ITEM_IDS = ['pozione', 'revitalizzante', 'scudo', 'cristallo', 'cambio', 'paralisi', 'metamorfosi', 'bomba', 'pietra'];
+
+  const PLAY_ITEMS = ITEM_IDS.concat(['curasq']); // gli strumenti che si possono avere in partita (curasq solo in Sopravvivenza)
 
   // quante copie dello stesso strumento si possono mettere nel kit (default: tutte e 3)
   const itemMax = (id) => (ITEMS[id] && ITEMS[id].max) || KIT_SIZE;
@@ -69,6 +72,10 @@
     pozione: { item: 'pozione', w: 10 },
     cambio: { item: 'cambio', w: 10 },
     bomba: { item: 'bomba', w: 10 },
+    // solo Sopravvivenza (peso 0: non escono nelle partite normali)
+    revitalizzante: { item: 'revitalizzante', w: 0 },
+    metamorfosi: { item: 'metamorfosi', w: 0 },
+    scudo: { item: 'scudo', w: 0 },
   };
   const luckyInfo = (id) => {
     const b = LUCKY_BONUS[id];
@@ -95,5 +102,5 @@
     return 1;
   }
 
-  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax, LUCKY_BONUS, LUCKY_VIS, luckyInfo, HANDICAP_LABEL };
+  return { TYPES, TYPE_LABEL, STRONG, RESIST, ROLES, ITEMS, ITEM_IDS, TEAM, MAX_PER_TYPE, KIT_SIZE, DRAFT_PICKS, draftTurn, mult, itemMax, LUCKY_BONUS, LUCKY_VIS, luckyInfo, HANDICAP_LABEL, PLAY_ITEMS };
 });

@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const G = require('./game.js');
 const Bot = require('./bot.js');
 const Scalata = require('./public/scalata.js');
+const Survival = require('./public/survival.js');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -84,7 +85,7 @@ function scheduleBot(room) {
     room.botTimer = null;
     if (!rooms.has(room.code) || !room.bot) return;
     try {
-      const err = Bot.act(room.game, room.bot.color, room.bot.level);
+      const err = Bot.act(room.game, room.bot.color, room.surv && room.game.surv ? Survival.levelFor(room.game.surv.wave) : room.bot.level);
       if (err) console.error('Bot:', err);
     } catch (e) { console.error(e); }
     broadcast(room);
@@ -114,6 +115,17 @@ io.on('connection', (socket) => {
   socket.on('createBot', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
+    if (data.surv) { // Sopravvivenza: tu sei sempre il Blu, i nemici arrivano a ondate
+      const room = { code: newCode(), game: G.newGame({ lucky: { vis: 'full' } }, null, { random: !!data.surv.random }), players: { w: null, b: null }, touched: Date.now(), surv: true };
+      rooms.set(room.code, room);
+      seat(room, socket, 'w', data.token, cleanName(data.name));
+      room.players.b = { token: '__bot__', sid: null, bot: true };
+      room.bot = { color: 'b', level: Survival.levelFor(1) };
+      G.startDraft(room.game);
+      room.game.log.push(room.game.surv.random ? 'Sopravvivenza: tipi a caso. Scegli gli strumenti.' : 'Sopravvivenza: assegna un tipo a ognuno dei tuoi pezzi.');
+      cb({ ok: true, code: room.code });
+      return broadcast(room);
+    }
     const mine = Math.random() < 0.5 ? 'w' : 'b';
     const run = data.run ? Scalata.normRun(data.run) : null; // Scalata: livello del bot e bonus dipendono dallo scontro
     const level = run ? Scalata.STAGES[run.stage - 1].level : ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
@@ -224,12 +236,14 @@ io.on('connection', (socket) => {
   socket.on('items', (d) => d && act((g, c) => G.setItems(g, c, d.list, d.choices)));
   socket.on('move', (d) => d && act((g, c) => G.move(g, c, d.id, d.r, d.c)));
   socket.on('item', (d) => d && act((g, c) => G.useItem(g, c, d)));
+  socket.on('wave', (d) => act((g, c, room) => (room.surv ? G.nextWave(g, c, d && d.choice) : 'Non disponibile')));
   socket.on('promote', (d) => d && act((g, c) => G.choosePromotion(g, c, d.role)));
   socket.on('resign', () => act((g, c) => G.resign(g, c)));
   socket.on('rematch', () => act((g, c, room) => {
     if (room.sandbox) return 'Nel campo di prova usa "Posizione iniziale"';
     if (g.phase !== 'over') return 'La partita non è finita';
     if (room.run) return 'Nella Scalata si riparte dal menu';
+    if (room.surv) return 'In Sopravvivenza si ricomincia dal menu';
     room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;
     G.startDraft(room.game);
@@ -288,6 +302,7 @@ io.on('connection', (socket) => {
   socket.on('undo', () => {
     const room = rooms.get(socket.data.code);
     if (!room || socket.data.spectator || !(room.bot || room.local)) return;
+    if (room.surv) return socket.emit('errore', 'In Sopravvivenza non si annulla (hardcore)');
     if (room.run && room.game.phase === 'over') return socket.emit('errore', 'Lo scontro è finito');
     if (room.run && !(room.undoLeft > 0)) return socket.emit('errore', 'Nella Scalata serve il bonus Seconda possibilità');
     const snap = room.snaps && room.snaps.pop();

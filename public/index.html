@@ -66,6 +66,9 @@
         <button class="link h-back" type="button" data-back>← Indietro</button>
         <h2 class="h-ptitle">🏆 Avventure</h2>
         <button id="btnScal" class="btn h-big" type="button"><i>🏆</i><b>Scalata</b><small>8 scontri, un bonus dopo ogni vittoria</small></button>
+        <button id="btnSurv" class="btn h-big" type="button"><i>🌊</i><b>Sopravvivenza</b><small>Ondate di nemici casuali: la tua squadra si consuma</small></button>
+        <label class="h-chk"><input type="checkbox" id="survRandom"> 🎲 Tipi a caso (sfida in più)</label>
+        <p class="h-hint">Sopravvivenza: scegli i tipi e 6 strumenti una sola volta. Ogni ondata ha nemici casuali, senza Re: vinci l'ondata eliminandoli tutti. I tuoi pezzi persi e gli HP persi restano così. Ogni 3 ondate c'è un bonus. Si finisce quando perdi il Re.</p>
         <p class="h-hint">Altre modalità in arrivo.</p>
       </div>
 
@@ -132,6 +135,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="shared.js"></script>
 <script src="scalata.js"></script>
+<script src="survival.js"></script>
 <script src="config.js"></script>
 <script src="sound.js"></script>
 <script src="client.js"></script>

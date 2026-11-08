@@ -188,7 +188,7 @@ function cands(g, color, level) {
   const opp = G.other(color);
   const out = [], entries = [];
   const lm = G.legalMoves(g, color);
-  const lsq = g.lucky && g.lucky.sq && g.mods && g.mods.lucky && g.mods.lucky.vis !== 'hidden' ? g.lucky.sq : null; // nascosta: il bot non la conosce
+  const lsq = !g.surv && g.lucky && g.lucky.sq && g.mods && g.mods.lucky && g.mods.lucky.vis !== 'hidden' ? g.lucky.sq : null; // nascosta: il bot non la conosce
   for (const id of Object.keys(lm)) for (const m of lm[id]) {
     const sim = G.simClone(g);
     play(sim, color, id, m.r, m.c);

@@ -146,6 +146,11 @@
   const startBot = (level) => { store('sm_lv', level); socket.emit('createBot', { token, level, name: myName(), mods: { ...getMods(), handicap: optHc.value ? { level: optHc.value, who: optHcWho.value } : null } }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }); };
+  const startSurv = (random) => { socket.emit('createBot', { token, name: myName(), surv: { random: !!random } }, (res) => {
+    if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
+  }); };
+  $('#btnSurv').addEventListener('click', () => { store('sm_survrand', $('#survRandom').checked ? '1' : ''); startSurv($('#survRandom').checked); });
+  try { $('#survRandom').checked = store('sm_survrand') === '1'; } catch (e) { /* ignora */ }
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
   $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
   $('#btnBotHard').addEventListener('click', () => startBot('hard'));
@@ -336,11 +341,12 @@
 
   function renderTop() {
     const o = opp();
-    const lv = S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const lv = S.surv ? `🌊 Ondata ${S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
-    const modPill = S.lucky ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
+    const modPill = S.lucky && !S.surv ? `<span class="pill" title="Modificatore attivo: caselle fortunate (${Sh.LUCKY_VIS[S.lucky.vis].toLowerCase()})">✨ ${S.lucky.vis === 'hidden' ? 'Nascosta' : 'Fortunate'}</span>` : '';
+    const survPill = S.surv ? `<span class="pill" title="Nemici rimasti">⚔️ ${S.surv.enemies} nemici · superate ${S.surv.cleared}</span>` : '';
     const runPill = S.run ? `<span class="pill" title="Scalata">🏆 Scontro ${S.run.stage}/${Scalata.STAGE_COUNT}</span>` : '';
     const modPill2 = S.mods && S.mods.randomTypes ? '<span class="pill" title="Modificatore attivo: tipi a caso, senza draft">🎲 Tipi a caso</span>' : '';
     const hc = S.mods && S.mods.handicap;
@@ -352,7 +358,7 @@
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       <span class="pill">👁 Spettatore</span>
       <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
-      ${modPill}${modPill2}${hcPill}${eyes}
+      ${survPill}${modPill}${modPill2}${hcPill}${eyes}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
       <button class="pill" id="btnTypes" type="button">Tipi</button>
@@ -363,7 +369,7 @@
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
       <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
       ${S.sandbox && ui.sb.mode === 'edit' ? '' : `<span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>`}
-      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${modPill}${modPill2}${hcPill}${eyes}
+      ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${survPill}${modPill}${modPill2}${hcPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
       <span class="spacer"></span>
       <button class="pill" id="btnSound" type="button" title="Suoni" aria-label="Suoni">${window.Sfx && Sfx.isMuted() ? '🔇' : '🔊'}</button>
@@ -606,7 +612,7 @@
       return `<button class="tbtn" style="--c:var(--c-${t})" type="button" data-act="type" data-type="${t}" ${dis ? 'disabled' : ''}><img src="${typeIcon(t)}" alt="">${Sh.TYPE_LABEL[t]}<small>${Sh.MAX_PER_TYPE - n} rimasti</small></button>`;
     }).join('');
     return `<div class="box"><h3>Draft dei tipi</h3>
-      <div class="progress"><i style="width:${(S.picks / 30) * 100}%"></i></div>
+      <div class="progress"><i style="width:${(S.picks / (S.surv ? 15 : 30)) * 100}%"></i></div>
       ${intro}
       <div class="typegrid">${buttons}</div>
       <p class="mute">Pezzi senza tipo: ${left}. Ogni tipo si può usare al massimo ${Sh.MAX_PER_TYPE} volte. Il Re resta incolore.</p></div>`;
@@ -659,11 +665,40 @@
       <div class="row" style="margin-top:10px"><button class="btn primary" type="button" data-act="confirmItems" ${ui.picks.length === N && choiceDone() ? '' : 'disabled'}>Conferma</button></div></div>`;
   }
 
+  // Sopravvivenza: record personale (nel browser), fine ondata e fine corsa
+  const survBest = () => { try { return +store('sm_survbest') || 0; } catch (e) { return 0; } };
+  function survActions() {
+    const sv = S.surv;
+    if (sv.state === 'cleared') {
+      if (sv.bonusDue) return `<p class="mute">Bonus! Scegli come usarlo:</p><div class="row"><button class="btn primary" type="button" data-act="waveNow">Usalo subito: +${sv.bonusNow} HP ai pezzi feriti</button><button class="btn" type="button" data-act="waveKeep">Tienilo: Cura di squadra (+${sv.bonusKeep} HP a tutti, quando vuoi)</button></div>`;
+      return '<div class="row"><button class="btn primary" type="button" data-act="waveNext">Prossima ondata</button></div>';
+    }
+    return '<div class="row"><button class="btn primary" type="button" data-act="survNew">Nuova corsa</button><button class="btn" type="button" data-act="home">Torna alla home</button></div>';
+  }
+  function survBanner() {
+    const sv = S.surv;
+    if (sv.state === 'cleared') return `<div class="banner win">Ondata ${sv.wave} superata!<br><span style="font-weight:600">Ne hai superate ${sv.cleared}. Pezzi persi e HP persi restano così.</span></div>${survActions()}`;
+    if (sv.cleared > survBest()) { try { store('sm_survbest', String(sv.cleared)); } catch (e) { /* ignora */ } }
+    return `<div class="banner lose">Corsa finita<br><span style="font-weight:600">Ondate superate: ${sv.cleared} · record ${Math.max(sv.cleared, survBest())}</span></div>${survActions()}`;
+  }
+  function renderSurvEnd(el) {
+    const sv = S.surv, cleared = sv.state === 'cleared';
+    if (!cleared && sv.cleared > survBest()) { try { store('sm_survbest', String(sv.cleared)); } catch (e) { /* ignora */ } }
+    el.innerHTML = `<div class="endbox ${cleared ? 'win' : 'lose'}"><canvas id="confetti"></canvas>
+      <div class="end-ico">${cleared ? '🌊' : '💥'}</div>
+      <h2 class="end-title">${cleared ? `Ondata ${sv.wave} superata!` : 'Corsa finita'}</h2>
+      <p class="end-reason">${cleared ? `Ne hai superate ${sv.cleared}.` : `Ondate superate: ${sv.cleared} · record ${Math.max(sv.cleared, survBest())}`}</p>
+      <div class="end-actions">${survActions()}<button class="link" type="button" data-act="review">Guarda la scacchiera</button></div></div>`;
+    el.hidden = false;
+    if (cleared) confetti();
+  }
+
   function playPanel() {
     let html = '';
     if (S.phase === 'over') {
       const res = S.winner === null ? ['draw', 'Patta'] : S.winner === S.you ? ['win', 'Hai vinto!'] : ['lose', 'Hai perso'];
-      if (S.sandbox) html += `<div class="banner ${res[0]}">${S.winner ? 'Vince il ' + teamName(S.winner) : 'Patta'}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>`;
+      if (S.surv) html += survBanner();
+      else if (S.sandbox) html += `<div class="banner ${res[0]}">${S.winner ? 'Vince il ' + teamName(S.winner) : 'Patta'}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>`;
       else html += `<div class="banner ${res[0]}">${res[1]}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>
         <div class="row">${S.run ? '<button class="btn primary" type="button" data-act="scal">Torna alla Scalata</button>' : `<button class="btn primary" type="button" data-act="rematch">Rivincita${S.local ? '' : ' (colori scambiati)'}</button><button class="btn" type="button" data-act="home">Torna alla home</button>`}${(S.bot || S.local) && S.canUndo ? '<button class="btn" type="button" data-act="undo">↶ Annulla mossa</button>' : ''}</div>`;
     }
@@ -678,7 +713,7 @@
     // strumenti
     const mine = S.items[S.you] || [];
     const theirs = S.items[opp()] || [];
-    const group = (list) => Sh.ITEM_IDS.map((i) => ({ i, n: list.filter((x) => x === i).length })).filter((x) => x.n);
+    const group = (list) => Sh.PLAY_ITEMS.map((i) => ({ i, n: list.filter((x) => x === i).length })).filter((x) => x.n);
     let ibox = `<div class="box"><h3>I tuoi strumenti</h3>`;
     if (!mine.length) ibox += '<p class="mute">Li hai finiti tutti.</p>';
     ibox += '<div class="itemgrid">';
@@ -691,13 +726,14 @@
     }
     ibox += '</div>';
     if (ui.item) ibox += itemPrompt();
-    ibox += `<p class="mute" style="margin-top:8px">Avversario: ${theirs.length ? group(theirs).map((x) => `${Sh.ITEMS[x.i].label}${x.n > 1 ? ' ×' + x.n : ''}`).join(', ') : 'nessuno strumento'}</p></div>`;
+    if (!S.surv) ibox += `<p class="mute" style="margin-top:8px">Avversario: ${theirs.length ? group(theirs).map((x) => `${Sh.ITEMS[x.i].label}${x.n > 1 ? ' ×' + x.n : ''}`).join(', ') : 'nessuno strumento'}</p>`;
+    ibox += '</div>';
     html += ibox;
     if (S.phase === 'play') {
       if (S.drawOffer && S.drawOffer !== S.you) html += `<div class="box"><h3>Patta?</h3><p>Il ${teamName(S.drawOffer)} propone la patta.</p><div class="row"><button class="btn primary" type="button" data-act="drawYes">Accetta</button><button class="btn" type="button" data-act="drawNo">Rifiuta</button></div></div>`;
       let b = S.sandbox ? '' : '<button class="btn sm" type="button" data-act="resign">Arrenditi</button>';
       if (!S.bot && !S.local) b += S.drawOffer === S.you ? '<button class="btn sm" type="button" disabled>Patta proposta…</button>' : '<button class="btn sm" type="button" data-act="draw">Proponi patta</button>';
-      if (S.bot || S.local) b += `<button class="btn sm" type="button" data-act="undo" ${S.canUndo ? '' : 'disabled'}>↶ Annulla mossa</button>`;
+      if ((S.bot || S.local) && !S.surv) b += `<button class="btn sm" type="button" data-act="undo" ${S.canUndo ? '' : 'disabled'}>↶ Annulla mossa</button>`;
       html += `<div class="row">${b}</div>`;
     }
     return html;
@@ -816,7 +852,7 @@
         break;
       }
       case 'scal': goScal(); break;
-      case 'useItem': ui.item = ui.item && ui.item.name === d.item ? null : { name: d.item }; ui.sel = null; render(); break;
+      case 'useItem': if (d.item === 'curasq') { socket.emit('item', { item: 'curasq' }); ui.item = null; break; } ui.item = ui.item && ui.item.name === d.item ? null : { name: d.item }; ui.sel = null; render(); break;
       case 'cancelItem': ui.item = null; render(); break;
       case 'grave': ui.item.id = d.id; render(); break;
       case 'metaType': socket.emit('item', { item: 'metamorfosi', id: ui.item.id, type: d.type }); ui.item = null; break;
@@ -854,6 +890,10 @@
     if (a === 'rematch') { ui.endDismissed = false; socket.emit('rematch'); }
     else if (a === 'home') leaveRoom();
     else if (a === 'scal') goScal();
+    else if (a === 'waveNext') { ui.endDismissed = false; socket.emit('wave', {}); }
+    else if (a === 'waveNow') { ui.endDismissed = false; socket.emit('wave', { choice: 'now' }); }
+    else if (a === 'waveKeep') { ui.endDismissed = false; socket.emit('wave', { choice: 'keep' }); }
+    else if (a === 'survNew') { const r = S.surv.random; ui.endDismissed = false; $('#endcard').hidden = true; socket.emit('leave'); store('sm_room', null); startSurv($('#survRandom') ? $('#survRandom').checked : r); }
     else if (a === 'undo') socket.emit('undo');
     else if (a === 'sbEdit') { ui.sb.mode = 'edit'; render(); }
     else if (a === 'review') { ui.endDismissed = true; $('#endcard').hidden = true; }
@@ -875,6 +915,7 @@
     const el = $('#endcard');
     if (!S || S.phase !== 'over' || S.sandbox) { el.hidden = true; ui.endDismissed = false; return; }
     if (ui.endDismissed || !el.hidden) return;
+    if (S.surv && !S.spectator) return renderSurvEnd(el);
     if (S.run && !S.spectator) return renderRunEnd(el);
     const res = S.winner === null ? ['draw', 'Patta'] : S.local || S.spectator ? ['win', 'Vince il ' + teamName(S.winner)] : S.winner === S.you ? ['win', 'Vittoria!'] : ['lose', 'Sconfitta'];
     el.innerHTML = `<div class="endbox ${res[0]}"><canvas id="confetti"></canvas>

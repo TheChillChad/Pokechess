@@ -3,6 +3,7 @@
 // Colori interni: 'w' = Blu (muove per primo), 'b' = Rosso.
 const S = require('./public/shared.js');
 const SC = require('./public/scalata.js');
+const SV = require('./public/survival.js');
 
 const BACK_RANK = ['torre', 'cavallo', 'alfiere', 'regina', 're', 'alfiere', 'cavallo', 'torre'];
 const other = (c) => (c === 'w' ? 'b' : 'w');
@@ -40,10 +41,10 @@ function applyHandicap(g) {
   if (h.level === 'extreme') cut('regina', 3);
 }
 
-function newGame(mods, run) {
+function newGame(mods, run, surv) {
   mods = normMods(mods);
   const pieces = {};
-  for (const color of ['w', 'b']) {
+  for (const color of surv ? ['w'] : ['w', 'b']) { // Sopravvivenza: all'inizio c'è solo la tua squadra, i nemici arrivano a ondate
     const backR = color === 'w' ? 7 : 0;
     const pawnR = color === 'w' ? 6 : 1;
     let k = 0;
@@ -56,7 +57,7 @@ function newGame(mods, run) {
     pieces,
     picks: 0, // scelte di tipo fatte (30 in tutto)
     items: { w: [], b: [] },
-    itemsReady: { w: false, b: false },
+    itemsReady: { w: false, b: !!surv },
     graveyard: { w: [], b: [] },
     pending: null, // { id } promozione in attesa di scelta
     shieldLock: null, // id del pezzo che ha appena ricevuto lo Scudo: in questo turno non può muovere
@@ -70,6 +71,7 @@ function newGame(mods, run) {
     mods,
     lucky: mods.lucky ? { sq: null, nextAt: LUCKY_FIRST } : null, // sq: { r, c, bonus }
     ply: 0, // mezze mosse giocate (serve alle caselle fortunate)
+    surv: surv ? { wave: 0, cleared: 0, state: 'draft', random: !!(surv && surv.random), n: 0, bonusDue: false } : null, // Sopravvivenza
     run: run && (run.color === 'w' || run.color === 'b') ? { ...SC.normRun(run), color: run.color, choices: {} } : null, // Scalata
   };
 }
@@ -310,6 +312,16 @@ function typeCounts(g) {
 
 // Inizio della partita vera: draft dei tipi, oppure (modificatore «tipi a caso») tipi assegnati subito e si passa agli strumenti
 function startDraft(g) {
+  if (g.surv) {
+    if (!g.surv.random) { g.phase = 'draft'; g.turn = 'w'; return; }
+    const hand = S.TYPES.flatMap((t) => [t, t]);
+    hand.splice(Math.floor(Math.random() * hand.length), 1);
+    for (let i = hand.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [hand[i], hand[j]] = [hand[j], hand[i]]; }
+    Object.values(g.pieces).filter((p) => p.color === 'w' && p.role !== 're').forEach((p, i) => { p.type = hand[i]; });
+    g.picks = S.DRAFT_PICKS / 2; g.phase = 'items'; g.turn = 'w';
+    log(g, 'Tipi assegnati a caso. Scegli gli strumenti.');
+    return;
+  }
   if (!g.mods.randomTypes) { g.phase = 'draft'; return; }
   // Stessa «mano» di tipi per i due lati (15 su 16 posti: 2 per tipo, uno escluso a caso), assegnata a caso ai pezzi di ognuno
   const hand = S.TYPES.flatMap((t) => [t, t]);
@@ -337,18 +349,19 @@ function draftPick(g, color, pieceId, type) {
   p.type = type;
   g.picks++;
   log(g, `${S.TEAM[color]} assegna ${cap(type)} a ${cap(p.role)}.`);
-  if (g.picks >= S.DRAFT_PICKS) {
+  if (g.picks >= (g.surv ? S.DRAFT_PICKS / 2 : S.DRAFT_PICKS)) {
     g.phase = 'items';
     g.turn = 'w';
-    log(g, 'Draft finito. Ora scegliete 3 strumenti a testa.');
+    log(g, g.surv ? 'Draft finito. Scegli i tuoi strumenti.' : 'Draft finito. Ora scegliete 3 strumenti a testa.');
   } else {
-    g.turn = S.draftTurn(g.picks); // serpentina: A B B A A B B A …
+    g.turn = g.surv ? 'w' : S.draftTurn(g.picks); // serpentina: A B B A A B B A …
   }
   return null;
 }
 
 // Kit di un lato: quanti strumenti si scelgono, quali si ricevono in più (Scalata) e di quanto si superano i limiti
 function kitInfo(g, color) {
+  if (g.surv) return { picks: color === 'w' ? SV.KIT : 0, forced: [], extraCap: 0 };
   const k = SC.kitFor(g.run, !!g.run && g.run.color === color, S.KIT_SIZE);
   const h = g.mods && g.mods.handicap;
   return h && h.color === color ? { ...k, picks: handicapPicks(h) } : k;
@@ -371,6 +384,7 @@ function setItems(g, color, list, choices) {
   g.items[color] = list.concat(kit.forced);
   g.itemsReady[color] = true;
   if (g.itemsReady.w && g.itemsReady.b) {
+    if (g.surv) { spawnWave(g); return null; }
     g.phase = 'play';
     g.turn = 'w';
     if (g.run) applyRun(g);
@@ -378,6 +392,94 @@ function setItems(g, color, list, choices) {
     log(g, 'Si parte! Muove il Blu.');
   }
   return null;
+}
+
+// ---------- Sopravvivenza ----------
+// Casa di un pezzo del giocatore (dall'id: w0..w7 fondo, w8..w15 pedoni), anche se nel frattempo si è promosso
+function survHome(id) { const k = +id.slice(1); return k < 8 ? [7, k] : [6, k - 8]; }
+const rndPick = (a) => a[Math.floor(Math.random() * a.length)];
+const shuffled = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+// Compone l'ondata `w` con un budget di punti: ruoli a caso (con limiti), tipi a caso, posizioni a caso nelle prime file nemiche
+function waveRoles(w) {
+  let pts = SV.budget(w);
+  const used = {}, out = [];
+  while (out.length < 24) {
+    const bigN = out.filter((r) => r !== 'pedone').length;
+    const pawnN = out.length - bigN;
+    const opts = Object.keys(SV.COST).filter((r) => SV.COST[r] <= pts && (used[r] || 0) < SV.CAP[r](w) && (r === 'pedone' ? pawnN < 16 : bigN < 16)); // 16 caselle nelle prime due file, 16 per i pedoni nelle file 1-2
+    if (!opts.length) break;
+    let x = Math.random() * opts.reduce((a, r) => a + SV.WEIGHT[r], 0), role = opts[0];
+    for (const r of opts) { x -= SV.WEIGHT[r]; if (x < 0) { role = r; break; } }
+    used[role] = (used[role] || 0) + 1; pts -= SV.COST[role]; out.push(role);
+  }
+  return out;
+}
+function spawnWave(g) {
+  const sv = g.surv;
+  sv.wave++;
+  sv.state = 'play';
+  sv.bonusDue = false;
+  for (const id of Object.keys(g.pieces)) if (g.pieces[id].color === 'b') delete g.pieces[id];
+  g.graveyard.b = [];
+  const roles = waveRoles(sv.wave);
+  const big = roles.filter((r) => r !== 'pedone'), pawns = roles.filter((r) => r === 'pedone');
+  const sqBig = shuffled([0, 1].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c])));
+  const place = (role, r, c) => {
+    const id = 'b' + sv.n++;
+    const p = mkPiece(id, 'b', role, r, c);
+    p.type = rndPick(S.TYPES);
+    const hb = SV.hpBonus(sv.wave);
+    p.maxHp += hb; p.hp += hb;
+    g.pieces[id] = p;
+  };
+  const taken = new Set();
+  for (const role of big) { const sq = sqBig.shift(); if (!sq) break; taken.add(sq[0] * 8 + sq[1]); place(role, sq[0], sq[1]); }
+  const sqPawn = shuffled([1, 2].flatMap((r) => [0, 1, 2, 3, 4, 5, 6, 7].map((c) => [r, c]))).filter(([r, c]) => !taken.has(r * 8 + c));
+  for (const role of pawns) { const sq = sqPawn.shift(); if (sq) place(role, sq[0], sq[1]); }
+  // la tua squadra torna alle caselle di partenza
+  for (const p of Object.values(g.pieces)) {
+    if (p.color !== 'w' || !p.alive) continue;
+    [p.r, p.c] = survHome(p.id);
+    p.hasMoved = false; p.frozen = false; p.rage = 0; p.guard = 0;
+  }
+  if (g.lucky) { g.lucky.sq = null; g.lucky.used = false; g.lucky.nextAt = (g.ply || 0) + 4; }
+  g.phase = 'play';
+  g.turn = 'b'; // il nemico muove per primo
+  g.winner = null; g.reason = null; g.pending = null; g.shieldLock = null; g.freeUsed = false; g.lastMove = null;
+  log(g, `Ondata ${sv.wave}: ${roles.length} nemici (${roles.length ? [...new Set(roles)].map((r) => roles.filter((x) => x === r).length + ' ' + S.ROLES[r].label.toLowerCase()).join(', ') : ''}). Muove il Rosso.`);
+}
+// il giocatore sceglie il bonus (se dovuto) e passa all'ondata successiva
+function nextWave(g, color, choice) {
+  const sv = g.surv;
+  if (!sv || color !== 'w') return 'Non disponibile';
+  if (g.phase !== 'over' || sv.state !== 'cleared') return 'L\'ondata non è finita';
+  if (sv.bonusDue) {
+    if (choice === 'now') {
+      let n = 0;
+      for (const p of Object.values(g.pieces)) if (p.color === 'w' && p.alive && p.role !== 're' && p.hp < p.maxHp) { p.hp = Math.min(p.maxHp, p.hp + SV.BONUS_NOW); n++; }
+      log(g, `Bonus: +${SV.BONUS_NOW} HP ai pezzi feriti (${n}).`);
+    } else if (choice === 'keep') {
+      g.items.w.push('curasq');
+      log(g, 'Bonus: ricevi una Cura di squadra da usare quando vuoi.');
+    } else return 'Scegli il bonus: usalo subito o tienilo';
+  }
+  spawnWave(g);
+  return null;
+}
+// Fine ondata (tutti i nemici sconfitti)
+function checkWaveCleared(g) {
+  const sv = g.surv;
+  if (!sv || g.phase !== 'play') return false;
+  if (Object.values(g.pieces).some((p) => p.color === 'b' && p.alive)) return false;
+  sv.cleared++;
+  sv.state = 'cleared';
+  sv.bonusDue = sv.cleared % SV.EVERY === 0;
+  g.phase = 'over';
+  g.winner = 'w';
+  g.reason = `Ondata ${sv.wave} superata`;
+  log(g, `Ondata ${sv.wave} superata!`);
+  return true;
 }
 
 // ---------- Scalata ----------
@@ -439,6 +541,13 @@ function applyItem(g, color, a) {
       p.hp += gain;
       log(g, `${team} usa Pozione su ${name(p)}: +${gain} HP.`);
       event(g, p.r, p.c, `+${gain}`, 'heal');
+      return null;
+    }
+    case 'curasq': {
+      const hurt = Object.values(g.pieces).filter((p) => p.color === color && p.alive && p.role !== 're' && p.hp < p.maxHp);
+      if (!hurt.length) return 'Nessun pezzo è ferito';
+      for (const p of hurt) { p.hp = Math.min(p.maxHp, p.hp + SV.BONUS_KEEP); event(g, p.r, p.c, '+' + SV.BONUS_KEEP, 'heal'); }
+      log(g, `${team} usa Cura di squadra: +${SV.BONUS_KEEP} HP a ${hurt.length} pezzi.`);
       return null;
     }
     case 'scudo': {
@@ -578,21 +687,37 @@ function pickBonus() {
   for (const i of ids) { x -= S.LUCKY_BONUS[i].w; if (x < 0) return i; }
   return ids[0];
 }
+function survBonus() {
+  const ids = Object.keys(SV.SQUARE);
+  let x = Math.random() * ids.reduce((a, i) => a + SV.SQUARE[i], 0);
+  for (const i of ids) { x -= SV.SQUARE[i]; if (x < 0) return i; }
+  return ids[0];
+}
 function luckyTick(g) {
   const L = g.lucky;
   if (!L || L.sq || g.ply < L.nextAt || g.phase !== 'play') return;
   const gr = grid(g);
   const free = [];
-  for (let r = 2; r <= 5; r++) for (let c = 0; c < 8; c++) if (!gr[r][c]) free.push([r, c]);
+  if (g.surv) { // Sopravvivenza: una sola casella per ondata, vicino al tuo Re (2-3 mosse), la prende solo il Re
+    if (L.used) return;
+    const k = Object.values(g.pieces).find((p) => p.alive && p.color === 'w' && p.role === 're');
+    if (!k) return;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+      const d = Math.max(Math.abs(r - k.r), Math.abs(c - k.c));
+      if (!gr[r][c] && d >= SV.SQUARE_DIST[0] && d <= SV.SQUARE_DIST[1]) free.push([r, c]);
+    }
+  } else for (let r = 2; r <= 5; r++) for (let c = 0; c < 8; c++) if (!gr[r][c]) free.push([r, c]);
   if (!free.length) return;
   const [r, c] = free[Math.floor(Math.random() * free.length)];
-  L.sq = { r, c, bonus: pickBonus() };
+  if (g.surv) L.used = true;
+  L.sq = { r, c, bonus: g.surv ? survBonus() : pickBonus() };
   if (g.mods.lucky.vis !== 'hidden') log(g, 'Appare una casella fortunata!'); // nascosta: niente indizi nella cronaca
 }
 // il pezzo p si è appena fermato sulla sua casella: se è quella fortunata, prende il bonus
 function luckyPickup(g, color, p) {
   const L = g.lucky;
   if (!L || !L.sq || p.r !== L.sq.r || p.c !== L.sq.c) return;
+  if (g.surv && p.role !== 're') return; // la casella è solo del Re
   const id = L.sq.bonus;
   L.sq = null; L.nextAt = (g.ply || 0) + LUCKY_GAP;
   const info = S.luckyInfo(id);
@@ -617,6 +742,7 @@ function luckyPickup(g, color, p) {
 // ---------- turni ----------
 function endTurn(g) {
   if (g.phase === 'over') return;
+  if (checkWaveCleared(g)) return;
   const prev = g.turn;
   const next = other(prev);
   // la Paralisi dura un solo turno: finisce quando chi la subiva ha "saltato" il suo
@@ -629,6 +755,13 @@ function endTurn(g) {
   const chk = inCheck(g, next);
   const noMoves = Object.keys(legalMoves(g, next)).length === 0;
   const king = Object.values(g.pieces).find((p) => p.alive && p.color === next && p.role === 're');
+  if (g.surv && next === 'b' && noMoves) { // nemici bloccati o paralizzati: saltano il turno
+    log(g, 'Il Rosso non ha mosse: salta il turno.');
+    for (const p of Object.values(g.pieces)) if (p.color === 'b') p.frozen = false;
+    g.turn = 'w';
+    if (!Object.keys(legalMoves(g, 'w')).length && !inCheck(g, 'w')) { g.phase = 'over'; g.winner = null; g.reason = 'Stallo: non hai mosse'; g.surv.state = 'lost'; log(g, 'Stallo: la corsa finisce.'); }
+    return;
+  }
   if (noMoves && chk && !itemCanResolve(g, next)) {
     g.phase = 'over';
     g.winner = prev;
@@ -857,13 +990,14 @@ function publicState(room, color) {
     local: !!room.local,
     sandbox: !!g.sandbox,
     run: g.run ? { stage: g.run.stage, bonuses: g.run.bonuses, color: g.run.color, choices: SC.choicesNeeded(g.run), undoLeft: room.undoLeft || 0 } : null,
+    surv: g.surv ? { wave: g.surv.wave, cleared: g.surv.cleared, state: g.phase === 'over' && g.surv.state !== 'cleared' ? 'lost' : g.surv.state, bonusDue: g.surv.bonusDue, every: SV.EVERY, bonusNow: SV.BONUS_NOW, bonusKeep: SV.BONUS_KEEP, random: g.surv.random, enemies: Object.values(g.pieces).filter((p) => p.color === 'b' && p.alive).length } : null,
     kit: kitInfo(g, color),
     mods: g.mods,
     lucky: g.lucky && g.mods.lucky ? { vis: g.mods.lucky.vis, sq: g.lucky.sq && g.mods.lucky.vis !== 'hidden' ? { r: g.lucky.sq.r, c: g.lucky.sq.c, bonus: g.mods.lucky.vis === 'full' ? g.lucky.sq.bonus : null } : null } : null,
     spectators: room.spectators ? room.spectators.size : 0,
     names: { w: (room.players.w && room.players.w.name) || '', b: (room.players.b && room.players.b.name) || '' },
     drawOffer: room.drawOffer || null,
-    canUndo: !!((room.bot || room.local) && room.snaps && room.snaps.length) && (!room.run || (room.undoLeft > 0 && g.phase === 'play')),
+    canUndo: !g.surv && !!((room.bot || room.local) && room.snaps && room.snaps.length) && (!room.run || (room.undoLeft > 0 && g.phase === 'play')),
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,
@@ -885,7 +1019,7 @@ function publicState(room, color) {
 }
 
 module.exports = {
-  newGame, kitInfo, startDraft, draftPick, setItems, move, choosePromotion, useItem, resign,
+  newGame, kitInfo, startDraft, nextWave, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
   actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };
