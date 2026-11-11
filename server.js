@@ -7,6 +7,7 @@ const G = require('./game.js');
 const Bot = require('./bot.js');
 const Scalata = require('./public/scalata.js');
 const Survival = require('./public/survival.js');
+const Puzzles = require('./public/puzzles.js');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -115,6 +116,17 @@ io.on('connection', (socket) => {
   socket.on('createBot', (data, cb) => {
     cb = typeof cb === 'function' ? cb : () => {};
     if (!data || !validToken(data.token)) return cb({ error: 'Richiesta non valida' });
+    if (data.puzzle) { // Puzzle: posizione già pronta, il Rosso risponde col bot
+      const def = Puzzles.byId(String(data.puzzle));
+      if (!def) return cb({ error: 'Puzzle non trovato' });
+      const room = { code: newCode(), game: G.puzzleGame(def), players: { w: null, b: null }, touched: Date.now(), puzzle: true };
+      rooms.set(room.code, room);
+      seat(room, socket, 'w', data.token, cleanName(data.name));
+      room.players.b = { token: '__bot__', sid: null, bot: true };
+      room.bot = { color: 'b', level: 'hard' };
+      cb({ ok: true, code: room.code });
+      return broadcast(room);
+    }
     if (data.surv) { // Sopravvivenza: tu sei sempre il Blu, i nemici arrivano a ondate
       const room = { code: newCode(), game: G.newGame({ lucky: { vis: 'full' } }, null, { random: !!data.surv.random }), players: { w: null, b: null }, touched: Date.now(), surv: true };
       rooms.set(room.code, room);
@@ -247,6 +259,7 @@ io.on('connection', (socket) => {
     if (g.phase !== 'over') return 'La partita non è finita';
     if (room.run) return 'Nella Scalata si riparte dal menu';
     if (room.surv) return 'In Sopravvivenza si ricomincia dal menu';
+    if (room.puzzle) return 'Nei puzzle si usa Riprova';
     room.game = G.newGame(room.game.mods);
     room.snaps = []; room.drawOffer = null;
     G.startDraft(room.game);
@@ -306,6 +319,7 @@ io.on('connection', (socket) => {
     const room = rooms.get(socket.data.code);
     if (!room || socket.data.spectator || !(room.bot || room.local)) return;
     if (room.surv) return socket.emit('errore', 'In Sopravvivenza non si annulla (hardcore)');
+    if (room.puzzle) return socket.emit('errore', 'Nei puzzle si usa Riprova');
     if (room.run && room.game.phase === 'over') return socket.emit('errore', 'Lo scontro è finito');
     if (room.run && !(room.undoLeft > 0)) return socket.emit('errore', 'Nella Scalata serve il bonus Seconda possibilità');
     const snap = room.snaps && room.snaps.pop();

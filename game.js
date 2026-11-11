@@ -783,6 +783,10 @@ function luckyPickup(g, color, p) {
 function endTurn(g) {
   if (g.phase === 'over') return;
   if (checkWaveCleared(g)) return;
+  if (g.puzzle && g.turn === 'w') { // Puzzle: finisce una tua mossa
+    g.puzzle.used++;
+    if (puzzleGoalMet(g)) { g.phase = 'over'; g.winner = 'w'; g.reason = 'Puzzle risolto!'; log(g, 'Puzzle risolto!'); return; }
+  }
   const prev = g.turn;
   const next = other(prev);
   // la Paralisi dura un solo turno: finisce quando chi la subiva ha "saltato" il suo
@@ -817,6 +821,42 @@ function endTurn(g) {
     log(g, `Scacco al Re ${S.TEAM[next]}!`);
     if (king) event(g, king.r, king.c, 'Scacco!', 'check');
   }
+  if (g.puzzle && g.phase === 'play' && prev === 'w' && g.puzzle.used >= g.puzzle.moves) { // mosse finite senza aver risolto
+    g.phase = 'over'; g.winner = null; g.reason = 'Mosse finite: puzzle non risolto'; log(g, 'Mosse finite: puzzle non risolto.');
+  }
+}
+
+// ---------- Puzzle ----------
+// Pezzo: [ruolo, tipo, HP, riga, colonna, extra?] con extra 'dead' (nel cimitero), 'shield', 'boost'. Il Re: ['re', null, 0, r, c].
+function puzzleGame(def) {
+  const g = newGame();
+  g.pieces = {}; g.graveyard = { w: [], b: [] };
+  for (const color of ['w', 'b']) (def[color] || []).forEach((e, i) => {
+    const id = color + i;
+    const p = mkPiece(id, color, e[0], e[3], e[4]);
+    p.type = e[1] || null;
+    if (e[0] !== 're') p.hp = Math.max(1, Math.min(e[2] || p.maxHp, p.maxHp));
+    p.hasMoved = true; // niente arrocco nei puzzle
+    if (e[5] === 'dead') { p.alive = false; g.graveyard[color].push(id); }
+    if (e[5] === 'shield') p.shield = true;
+    if (e[5] === 'boost') p.boost = true;
+    g.pieces[id] = p;
+  });
+  const it = def.items || {};
+  g.items = { w: (it.w || []).slice(), b: (it.b || []).slice() };
+  g.itemsReady = { w: true, b: true };
+  g.picks = S.DRAFT_PICKS;
+  g.phase = 'play'; g.turn = 'w'; g.winner = null; g.reason = null;
+  const goal = def.goal || { type: 'mate' };
+  g.puzzle = { id: def.id, goal: { type: goal.type, target: goal.target != null ? 'b' + goal.target : null }, moves: def.moves, used: 0 };
+  log(g, `Puzzle: ${def.title}.`);
+  return g;
+}
+function puzzleGoalMet(g) {
+  const goal = g.puzzle.goal;
+  if (goal.type === 'kill') return !!g.pieces[goal.target] && !g.pieces[goal.target].alive;
+  if (goal.type === 'clear') return !Object.values(g.pieces).some((p) => p.color === 'b' && p.alive && p.role !== 're');
+  return false;
 }
 
 function promote(g, p, role) {
@@ -1030,6 +1070,7 @@ function publicState(room, color) {
     local: !!room.local,
     sandbox: !!g.sandbox,
     run: g.run ? { stage: g.run.stage, bonuses: g.run.bonuses, color: g.run.color, choices: SC.choicesNeeded(g.run), undoLeft: room.undoLeft || 0 } : null,
+    puzzle: g.puzzle ? { id: g.puzzle.id, goal: g.puzzle.goal, moves: g.puzzle.moves, used: g.puzzle.used, state: g.phase === 'over' ? (g.winner === 'w' ? 'solved' : 'failed') : 'play' } : null,
     surv: g.surv ? { wave: g.surv.wave, cleared: g.surv.cleared, state: g.phase === 'over' && g.surv.state !== 'cleared' ? 'lost' : g.surv.state, bonusDue: g.surv.bonusDue, every: SV.EVERY, bonusNow: SV.BONUS_NOW, bonusKeep: SV.BONUS_KEEP, random: g.surv.random, enemies: Object.values(g.pieces).filter((p) => p.color === 'b' && p.alive).length } : null,
     kit: kitInfo(g, color),
     mods: g.mods,
@@ -1037,7 +1078,7 @@ function publicState(room, color) {
     spectators: room.spectators ? room.spectators.size : 0,
     names: { w: (room.players.w && room.players.w.name) || '', b: (room.players.b && room.players.b.name) || '' },
     drawOffer: room.drawOffer || null,
-    canUndo: !g.surv && !!((room.bot || room.local) && room.snaps && room.snaps.length) && (!room.run || (room.undoLeft > 0 && g.phase === 'play')),
+    canUndo: !g.surv && !g.puzzle && !!((room.bot || room.local) && room.snaps && room.snaps.length) && (!room.run || (room.undoLeft > 0 && g.phase === 'play')),
     pieces: Object.values(g.pieces),
     counts: typeCounts(g),
     picks: g.picks,
@@ -1059,7 +1100,7 @@ function publicState(room, color) {
 }
 
 module.exports = {
-  newGame, kitInfo, startDraft, nextWave, placePiece, resetPlacement, startWave, draftPick, setItems, move, choosePromotion, useItem, resign,
+  puzzleGame, itemCanResolve, newGame, kitInfo, startDraft, nextWave, placePiece, resetPlacement, startWave, draftPick, setItems, move, choosePromotion, useItem, resign,
   legalMoves, inCheck, calcDamage, movesFor, grid, publicState, typeCounts, other,
   actingColor, simClone, sameShade, sandboxGame, sandboxEdit, applyMoveCore, applyItem, // usate dal bot per simulare
 };

@@ -125,3 +125,11 @@
 #home.h-sub .h-lead{display:none}
 #home.h-sub .h-wordmark{font-size:clamp(30px,9vw,40px)}
 #home.h-sub .h-homewrap{padding-top:16px;gap:10px}
+
+/* Puzzle: elenco */
+.h-puz{display:flex;flex-direction:column;gap:8px;margin:6px 0 10px}
+.h-puz button{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 12px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:inherit;font:inherit;cursor:pointer}
+.h-puz button b{flex:1;font-weight:700}
+.h-puz button small{display:block;font-weight:500;opacity:.75;margin-top:2px}
+.h-puz button .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(242,182,50,.2);font-weight:800;font-size:13px}
+.h-puz button.done .n{background:#2F7A5B;color:#fff}

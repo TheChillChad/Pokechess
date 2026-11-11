@@ -881,4 +881,37 @@ t('sopravvivenza: perdere il Re (matto) finisce la corsa', () => {
   assert.strictEqual(G.publicState({ code: 'ABCDE', game: g, players: { w: { sid: 'x' }, b: { bot: true } } }, 'w').surv.state, 'lost');
 });
 
+const PZ = require('../public/puzzles.js');
+const PS = require('../tools/puzzle-solve.js');
+t('puzzle: ids unici, partenza valida (nessun scacco), bersagli esistenti', () => {
+  assert.ok(PZ.LIST.length >= 10);
+  assert.strictEqual(new Set(PZ.LIST.map((p) => p.id)).size, PZ.LIST.length);
+  for (const d of PZ.LIST) {
+    const g = G.puzzleGame(d);
+    assert.strictEqual(g.phase, 'play'); assert.strictEqual(g.turn, 'w');
+    assert.ok(!G.inCheck(g, 'w') && !G.inCheck(g, 'b'), d.id + ' parte senza scacco');
+    assert.ok(g.pieces.w0 && g.pieces.w0.role === 're' && g.pieces.b0 && g.pieces.b0.role === 're', d.id + ' ha i due Re');
+    if (d.goal.type === 'kill') assert.ok(g.pieces['b' + d.goal.target] && g.pieces['b' + d.goal.target].alive, d.id + ' bersaglio');
+    assert.ok(PZ.byId(d.id) === d && PZ.goalText(d).length > 5 && d.hint);
+  }
+});
+t('puzzle: i puzzle a 1-2 mosse hanno una soluzione forzata e non più breve', () => {
+  for (const d of PZ.LIST.filter((p) => p.moves <= 2)) {
+    const g = G.puzzleGame(d);
+    assert.ok(PS.firstWinning(g, d.goal, d.moves, false).length > 0, d.id + ' risolvibile');
+    for (let k = 1; k < d.moves; k++) assert.ok(!PS.wins(g, d.goal, k), d.id + ' non in meno mosse');
+  }
+});
+t('puzzle: p1 si risolve con Regina in b7; mosse finite = non risolto; niente undo', () => {
+  const g = G.puzzleGame(PZ.byId('p1'));
+  assert.strictEqual(G.move(g, 'w', 'w1', 1, 1), null);
+  assert.strictEqual(g.phase, 'over'); assert.strictEqual(g.winner, 'w');
+  const st = G.publicState({ code: 'ABCDE', game: g, players: { w: { sid: 'x' }, b: { bot: true } } }, 'w');
+  assert.strictEqual(st.puzzle.state, 'solved'); assert.strictEqual(st.canUndo, false);
+  const h = G.puzzleGame(PZ.byId('p1'));
+  assert.strictEqual(G.move(h, 'w', 'w0', 4, 3), null); // mossa sbagliata
+  assert.strictEqual(h.phase, 'over'); assert.strictEqual(h.winner, null);
+  assert.strictEqual(G.publicState({ code: 'ABCDE', game: h, players: { w: { sid: 'x' }, b: { bot: true } } }, 'w').puzzle.state, 'failed');
+});
+
 console.log(`\n${passed} test passati`);
