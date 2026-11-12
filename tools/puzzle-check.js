@@ -31,7 +31,7 @@ function realWins(g) {
   return null;
 }
 let bad = 0;
-for (const d of Puzzles.LIST.concat(Puzzles.TUTORIAL)) {
+for (const d of Puzzles.LIST.concat(Puzzles.TUTORIAL, Puzzles.DAILY)) {
   const g = G.puzzleGame(d);
   if (d.manual) { console.log(`${G.inCheck(g, 'w') || G.inCheck(g, 'b') ? 'ERRORE' : 'ok  '} ${d.id} ${d.title}: verificato a mano nei test (promozione)`); continue; }
   const t = Date.now();

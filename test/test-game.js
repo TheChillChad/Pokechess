@@ -935,5 +935,22 @@ t('tutorial: con la Pietra Evolutiva la promozione a Regina dà matto, a Cavallo
   G.move(h, 'w', 'w1', 0, 5); G.choosePromotion(h, 'w', 'cavallo');
   assert.strictEqual(h.winner, null);
 });
+t('puzzle del giorno: 21 puzzle risolvibili, uno per giorno a partire dal 13/11/2026', () => {
+  assert.strictEqual(PZ.DAILY.length, 21);
+  assert.strictEqual(new Set(PZ.DAILY.concat(PZ.LIST, PZ.TUTORIAL).map((p) => p.id)).size, 21 + PZ.LIST.length + PZ.TUTORIAL.length);
+  for (const d of PZ.DAILY) {
+    const g = G.puzzleGame(d);
+    assert.ok(!G.inCheck(g, 'w') && !G.inCheck(g, 'b'), d.id + ' parte senza scacco');
+    assert.strictEqual(PS.firstWinning(g, d.goal, d.moves, false).length, 1, d.id + ' una sola soluzione');
+    assert.ok(d.hint && PZ.byId(d.id) === d);
+  }
+  assert.strictEqual(PZ.dailyOf('2026-11-13').def.id, 'd1');
+  assert.strictEqual(PZ.dailyOf('2026-11-14').def.id, 'd2');
+  assert.strictEqual(PZ.dailyOf('2026-12-03').def.id, 'd21');
+  assert.strictEqual(PZ.dailyOf('2026-12-03').repeat, false);
+  assert.strictEqual(PZ.dailyOf('2026-12-04').def.id, 'd1'); // finiti: si riparte
+  assert.strictEqual(PZ.dailyOf('2026-12-04').repeat, true);
+  assert.strictEqual(PZ.dailyOf('2026-11-01').def.id, 'd1'); // prima della partenza
+});
 
 console.log(`\n${passed} test passati`);

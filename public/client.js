@@ -74,6 +74,7 @@
     const last = store('sm_lv');
     document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.id === 'btnBot' + (last || '').charAt(0).toUpperCase() + (last || '').slice(1)));
     if (name === 'puz') renderPuzList();
+    if (name === 'avv') updateDaily();
     if (name === 'tut') renderTutList();
     $('#homeErr').textContent = '';
     const home = $('#home'); if (home) home.scrollTop = 0;
@@ -158,6 +159,17 @@
     const done = puzDone();
     $('#puzList').innerHTML = Puzzles.LIST.length ? Puzzles.LIST.map((p, i) => `<button type="button" data-puz="${p.id}" class="${done.includes(p.id) ? 'done' : ''}"><span class="n">${done.includes(p.id) ? '✓' : i + 1}</span><b>${esc(p.title)}<small>${esc(Puzzles.goalText(p))}${p.w && p.items && p.items.w.length ? ' · con strumenti' : ''}</small></b></button>`).join('') : '<p class="h-hint">Nessun puzzle ancora.</p>';
   }
+  // Puzzle del giorno: sm_daily = {done:{'YYYY-MM-DD':tentativi}, tries:{'YYYY-MM-DD':n}}
+  const localDate = (off = 0) => { const d = new Date(); d.setDate(d.getDate() + off); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const dailyData = () => { try { const x = JSON.parse(store('sm_daily') || '{}'); return { done: x.done || {}, tries: x.tries || {} }; } catch (e) { return { done: {}, tries: {} }; } };
+  const dailySave = (x) => { try { store('sm_daily', JSON.stringify(x)); } catch (e) { /* ignora */ } };
+  function dailyStreak() { const d = dailyData().done; let off = d[localDate()] ? 0 : -1, n = 0; while (d[localDate(off)]) { n++; off--; } return n; }
+  function updateDaily() {
+    const el = $('#dailySub'); if (!el) return;
+    const done = dailyData().done[localDate()], st = dailyStreak();
+    el.textContent = (done ? 'Oggi: risolto ✓' : 'Oggi: da fare') + (st ? ' · serie ' + st + (st === 1 ? ' giorno' : ' giorni') : '');
+  }
+  $('#btnDaily').addEventListener('click', () => { const x = Puzzles.dailyOf(localDate()); const dd = dailyData(); if (!dd.tries[localDate()]) { dd.tries[localDate()] = 1; dailySave(dd); } startPuzzle(x.def.id); });
   const tutDone = () => { try { return JSON.parse(store('sm_tut') || '[]'); } catch (e) { return []; } };
   function renderTutList() {
     const done = tutDone(); let n = 0;
@@ -366,7 +378,7 @@
 
   function renderTop() {
     const o = opp();
-    const lv = S.puzzle ? (isLesson() ? `📘 Lezione ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}` : `🧩 Puzzle ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}`) : S.surv ? `🌊 Ondata ${S.phase === 'prep' ? S.surv.wave + 1 : S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const lv = S.puzzle ? (isDaily() ? '📅 Puzzle del giorno' : isLesson() ? `📘 Lezione ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}` : `🧩 Puzzle ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}`) : S.surv ? `🌊 Ondata ${S.phase === 'prep' ? S.surv.wave + 1 : S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
@@ -700,29 +712,32 @@
   // Sopravvivenza: record personale (nel browser), fine ondata e fine corsa
   const survBest = () => { try { return +store('sm_survbest') || 0; } catch (e) { return 0; } };
   // Puzzle: pannello, fine e azioni
-  const PUZ_ACTS = ['puzRetry', 'puzNext', 'puzList', 'puzHint'];
+  const PUZ_ACTS = ['puzRetry', 'puzNext', 'puzList', 'puzHint', 'puzShare'];
   const puzDef = () => S && S.puzzle ? Puzzles.byId(S.puzzle.id) : null;
+  const isDaily = () => !!(S && S.puzzle && /^d\d+$/.test(S.puzzle.id));
   const isLesson = () => { const d = puzDef(); return !!(d && d.ch); };
-  const puzPool = () => (isLesson() ? Puzzles.TUTORIAL : Puzzles.LIST);
+  const puzPool = () => (isLesson() ? Puzzles.TUTORIAL : isDaily() ? Puzzles.DAILY : Puzzles.LIST);
   function puzzleBox() {
     const d = puzDef(), pz = S.puzzle; if (!d) return '';
     const left = pz.moves - pz.used;
     if (d.ch) return `<div class="box"><h3>📘 ${esc(d.title)}</h3><p>${esc(d.text)}</p><p class="mute"><b>${esc(Puzzles.goalText(d))}</b></p>${pz.state === 'play' ? '<div class="row"><button class="btn sm" type="button" data-act="puzRetry">↻ Ricomincia</button></div>' : ''}</div>`;
-    return `<div class="box"><h3>🧩 ${esc(d.title)}</h3><p><b>${esc(Puzzles.goalText(d))}</b>${pz.state === 'play' ? ` · mosse rimaste: <b>${left}</b>` : ''}</p>
+    return `<div class="box"><h3>${isDaily() ? '📅' : '🧩'} ${esc(d.title)}</h3><p><b>${esc(Puzzles.goalText(d))}</b>${pz.state === 'play' ? ` · mosse rimaste: <b>${left}</b>` : ''}</p>
       ${d.text ? `<p class="mute">${esc(d.text)}</p>` : ''}
       ${ui.showHint && d.hint ? `<p>💡 ${esc(d.hint)}</p>` : ''}
       ${pz.state === 'play' ? `<div class="row"><button class="btn sm" type="button" data-act="puzHint">${ui.showHint ? 'Nascondi' : '💡 Suggerimento'}</button><button class="btn sm" type="button" data-act="puzRetry">↻ Riprova</button></div>` : ''}</div>`;
   }
   function puzActions() {
     const pz = S.puzzle, idx = puzPool().findIndex((p) => p.id === pz.id), next = puzPool()[idx + 1];
+    if (isDaily()) return pz.state === 'solved' ? '<div class="row"><button class="btn primary" type="button" data-act="puzShare">📋 Copia risultato</button><button class="btn" type="button" data-act="puzList">Avventure</button></div>' : '<div class="row"><button class="btn primary" type="button" data-act="puzRetry">Riprova</button><button class="btn" type="button" data-act="puzList">Avventure</button></div>';
     if (pz.state === 'solved') return `<div class="row">${next ? `<button class="btn primary" type="button" data-act="puzNext">${isLesson() ? 'Prossima lezione' : 'Prossimo puzzle'}</button>` : ''}<button class="btn" type="button" data-act="puzRetry">Rifallo</button><button class="btn" type="button" data-act="puzList">Elenco</button></div>`;
     return '<div class="row"><button class="btn primary" type="button" data-act="puzRetry">Riprova</button><button class="btn" type="button" data-act="puzList">Elenco</button></div>';
   }
   function puzMarkDone() {
     if (S.puzzle.state !== 'solved') return;
+    if (isDaily()) { const dd = dailyData(), k = localDate(); if (!dd.done[k]) { dd.done[k] = dd.tries[k] || 1; dailySave(dd); } return; }
     const d = isLesson() ? tutDone() : puzDone(); if (!d.includes(S.puzzle.id)) { d.push(S.puzzle.id); try { store(isLesson() ? 'sm_tut' : 'sm_puz', JSON.stringify(d)); } catch (e) { /* ignora */ } }
   }
-  function puzMsg() { const d = puzDef(); if (d && d.ch) return (S.puzzle.state === 'solved' ? d.ok : d.ko) || ''; return S.reason || ''; }
+  function puzMsg() { if (isDaily() && S.puzzle.state === 'solved') { const n = dailyData().done[localDate()] || 1, st = dailyStreak(); return `Risolto in ${n} ${n === 1 ? 'tentativo' : 'tentativi'} · serie ${st} ${st === 1 ? 'giorno' : 'giorni'}`; } const d = puzDef(); if (d && d.ch) return (S.puzzle.state === 'solved' ? d.ok : d.ko) || ''; return S.reason || ''; }
   function puzBanner() {
     puzMarkDone();
     const ok = S.puzzle.state === 'solved';
@@ -741,10 +756,12 @@
   }
   function puzAct(a) {
     if (a === 'puzHint') { ui.showHint = !ui.showHint; return render(); }
-    const id = S.puzzle.id, lesson = isLesson(), pool = puzPool(), idx = pool.findIndex((p) => p.id === id);
+    if (a === 'puzShare') { const k = localDate(), n = dailyData().done[k] || 1, st = dailyStreak(), dm = k.slice(8) + '/' + k.slice(5, 7); const txt = `EleMate 📅 Puzzle del giorno ${dm}: risolto in ${n} ${n === 1 ? 'tentativo' : 'tentativi'}${st > 1 ? ' · serie ' + st + ' 🔥' : ''}`; (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(txt) : Promise.reject()).then(() => toast('Risultato copiato!'), () => toast(txt)); return; }
+    if (a === 'puzRetry' && isDaily()) { const dd = dailyData(), k = localDate(); if (!dd.done[k]) { dd.tries[k] = (dd.tries[k] || 1) + 1; dailySave(dd); } }
+    const id = S.puzzle.id, lesson = isLesson(), daily = isDaily(), pool = puzPool(), idx = pool.findIndex((p) => p.id === id);
     ui.endDismissed = false; ui.showHint = false; $('#endcard').hidden = true;
     socket.emit('leave'); store('sm_room', null);
-    if (a === 'puzList') { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ } if (lesson) ui.panel = 'tut'; return showHome(''); }
+    if (a === 'puzList') { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ } if (lesson) ui.panel = 'tut'; else if (daily) ui.panel = 'avv'; return showHome(''); }
     startPuzzle(a === 'puzNext' ? pool[idx + 1].id : id);
   }
   function survAct(a) {
