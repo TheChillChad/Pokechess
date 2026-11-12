@@ -107,7 +107,66 @@
   // Ordine nell'elenco: dal più facile al più difficile (gli id non cambiano, quindi i ✓ salvati restano validi).
   const ORDER = ['p1','p11','p12','p13','p2','p3','p4','p14','p15','p16','p17','p5','p8','p18','p19','p6','p7','p10','p9'];
   LIST.sort((a, b) => ORDER.indexOf(a.id) - ORDER.indexOf(b.id));
-  const byId = (id) => LIST.find((p) => p.id === id) || null;
+  // Tutorial: lezioni guidate (stesso motore dei puzzle). «ch» = capitolo, «ok»/«ko» = messaggio dopo successo/errore.
+  const CHAPTERS = [{ n: 1, title: 'Le basi', icon: '♟️' }, { n: 2, title: 'I tipi', icon: '🔥' }, { n: 3, title: 'Gli strumenti', icon: '🎒' }, { n: 4, title: 'Tattica', icon: '🎯' }];
+  const TUTORIAL = [
+    { id: "t1", ch: 1, title: "Il Pedone", text: "Il Pedone avanza di una casella (due dalla casa) ma cattura in diagonale. Sconfiggi il pedone evidenziato.", ok: "Esatto: il Pedone cattura in diagonale, mai dritto davanti a sé.", ko: "Il Pedone davanti a te è un ostacolo: si cattura in diagonale.",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["pedone", "ghiaccio", 4, 6, 3]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 2, 5, 4], ["pedone", "buio", 4, 5, 3]],
+      items: {"w": [], "b": []} },
+    { id: "t2", ch: 1, title: "La Torre", text: "La Torre muove in linea retta, in orizzontale o in verticale, per quante caselle vuole. Sconfiggi il pedone evidenziato.", ok: "La Torre percorre tutta la colonna e cattura.", ko: "Muovi la Torre in linea retta fino al pedone.",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 7, 0]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 3, 3, 0]],
+      items: {"w": [], "b": []} },
+    { id: "t3", ch: 1, title: "L'Alfiere", text: "L'Alfiere muove in diagonale e resta sempre sullo stesso colore di casella. Sconfiggi il pedone evidenziato.", ok: "L'Alfiere va solo in diagonale.", ko: "Muovi l'Alfiere lungo una diagonale.",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["alfiere", "ghiaccio", 7, 7, 2]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 3, 4, 5]],
+      items: {"w": [], "b": []} },
+    { id: "t4", ch: 1, title: "Il Cavallo", text: "Il Cavallo salta: si muove a «L» (due caselle e una di lato) e scavalca gli altri pezzi. Sconfiggi il pedone evidenziato.", ok: "Il Cavallo è l'unico che salta sopra gli altri pezzi.", ko: "Il Cavallo si muove a «L»: due caselle in una direzione e una di lato.",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["cavallo", "ghiaccio", 7, 7, 1], ["pedone", "erba", 4, 6, 0], ["pedone", "erba", 4, 6, 1], ["pedone", "erba", 4, 6, 2]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 4, 5, 2]],
+      items: {"w": [], "b": []} },
+    { id: "t5", ch: 1, title: "Lo scacco matto", text: "Se il Re è sotto attacco e non può né scappare né essere salvato, è scacco matto: la partita finisce. Qui il Re rosso è chiuso dai suoi pedoni.", ok: "Scacco matto! Il Re non ha vie di fuga: è il modo di vincere.", ko: "Dai scacco al Re con la Torre su una riga che il Re non può lasciare.",
+      goal: {"type": "mate"}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 4, 0]],
+      b: [["re", null, 0, 0, 6], ["pedone", "buio", 4, 1, 5], ["pedone", "buio", 4, 1, 6], ["pedone", "buio", 4, 1, 7]],
+      items: {"w": [], "b": []} },
+    { id: "t6", ch: 2, title: "Tipo forte", text: "Ogni pezzo ha un tipo: il Fuoco è forte contro l'Erba e fa il doppio dei danni. L'Acqua contro l'Erba fa metà. Scegli la Torre giusta per sconfiggere il Cavallo evidenziato.", ok: "Danno doppio! Fuoco contro Erba fa ×2, mentre Acqua contro Erba fa ×0,5.", ko: "Scegli il tipo che ha vantaggio sul bersaglio (apri «Tipi» in alto per la tabella).",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "fuoco", 8, 4, 0], ["torre", "acqua", 8, 4, 6]],
+      b: [["re", null, 0, 0, 4], ["cavallo", "erba", 7, 4, 3]],
+      items: {"w": [], "b": []} },
+    { id: "t7", ch: 2, title: "Tipo resistente", text: "Alcuni tipi resistono ad altri e subiscono la metà dei danni: il Fuoco resiste a Fuoco e Folletto. Scegli la Torre giusta.", ok: "Il Folletto contro il Fuoco fa solo metà danni: il Ghiaccio colpisce normale.", ko: "Evita il tipo contro cui il bersaglio resiste. Guarda la tabella «Tipi».",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "folletto", 8, 4, 0], ["torre", "ghiaccio", 8, 4, 6]],
+      b: [["re", null, 0, 0, 4], ["cavallo", "fuoco", 5, 4, 3]],
+      items: {"w": [], "b": []} },
+    { id: "t8", ch: 3, title: "Bomba", text: "La Bomba fa 3 danni fissi a qualunque pezzo, anche lontano, ma costa il turno. Sconfiggi il pedone evidenziato con la Bomba: nessuno dei tuoi pezzi lo raggiunge.", ok: "La Bomba colpisce a distanza, ma costa tutto il turno.", ko: "Usa lo strumento Bomba (in basso) e poi tocca il pedone nemico.",
+      goal: {"type": "kill", "target": 1}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 7, 0]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 3, 2, 6]],
+      items: {"w": ["bomba"], "b": []} },
+    { id: "t9", ch: 3, title: "Paralisi", text: "La Paralisi blocca un pezzo avversario: non muove né dà scacco. Non costa il turno! Qui il Cavallo rosso può parare lo scacco: bloccalo e poi dai matto con la Torre.", ok: "Paralisi gratuita: il Cavallo bloccato non può parare e il Re cade.", ko: "Prima usa Paralisi sul Cavallo rosso, poi dai scacco con la Torre.",
+      goal: {"type": "mate"}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 7, 7]],
+      b: [["re", null, 0, 0, 0], ["pedone", "buio", 4, 1, 0], ["pedone", "buio", 4, 1, 1], ["cavallo", "erba", 7, 2, 3]],
+      items: {"w": ["paralisi"], "b": []} },
+    { id: "t10", ch: 3, title: "Metamorfosi", text: "La Metamorfosi cambia il tipo di un tuo pezzo, ma costa il turno. Il Cavallo rosso in angolo è bloccato dai suoi pedoni: la tua Torre d'Acqua è debole contro l'Erba, trasformala e colpisci.", ok: "Con il tipo giusto la stessa Torre fa il doppio dei danni.", ko: "Cambia la tua Torre in un tipo forte contro l'Erba (Fuoco o Ghiaccio), poi attacca il Cavallo.",
+      goal: {"type": "kill", "target": 1}, moves: 2,
+      w: [["re", null, 0, 7, 4], ["torre", "acqua", 8, 6, 7]],
+      b: [["re", null, 0, 0, 4], ["cavallo", "erba", 7, 0, 7], ["pedone", "buio", 4, 1, 5], ["pedone", "buio", 4, 2, 6]],
+      items: {"w": ["metamorfosi"], "b": []} },
+    { id: "t11", ch: 4, title: "La forchetta", text: "Un Cavallo può dare scacco e minacciare un altro pezzo insieme: il Re deve muoversi e tu catturi. Sconfiggi la Regina rossa in 2 mosse.", ok: "Forchetta! Il Re doveva scappare e il Cavallo ha preso la Regina.", ko: "Muovi il Cavallo in una casella da cui dà scacco e attacca la Regina insieme.",
+      goal: {"type": "kill", "target": 1}, moves: 2,
+      w: [["re", null, 0, 7, 4], ["cavallo", "acqua", 7, 4, 2]],
+      b: [["re", null, 0, 0, 4], ["regina", "buio", 4, 3, 5]],
+      items: {"w": [], "b": []} },
+  ];
+  const byId = (id) => LIST.find((p) => p.id === id) || TUTORIAL.find((p) => p.id === id) || null;
   const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
-  return { LIST, byId, goalText };
+  return { LIST, TUTORIAL, CHAPTERS, byId, goalText };
 });

@@ -74,6 +74,7 @@
     const last = store('sm_lv');
     document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.id === 'btnBot' + (last || '').charAt(0).toUpperCase() + (last || '').slice(1)));
     if (name === 'puz') renderPuzList();
+    if (name === 'tut') renderTutList();
     $('#homeErr').textContent = '';
     const home = $('#home'); if (home) home.scrollTop = 0;
   }
@@ -157,6 +158,13 @@
     const done = puzDone();
     $('#puzList').innerHTML = Puzzles.LIST.length ? Puzzles.LIST.map((p, i) => `<button type="button" data-puz="${p.id}" class="${done.includes(p.id) ? 'done' : ''}"><span class="n">${done.includes(p.id) ? '✓' : i + 1}</span><b>${esc(p.title)}<small>${esc(Puzzles.goalText(p))}${p.w && p.items && p.items.w.length ? ' · con strumenti' : ''}</small></b></button>`).join('') : '<p class="h-hint">Nessun puzzle ancora.</p>';
   }
+  const tutDone = () => { try { return JSON.parse(store('sm_tut') || '[]'); } catch (e) { return []; } };
+  function renderTutList() {
+    const done = tutDone(); let n = 0;
+    $('#tutList').innerHTML = Puzzles.CHAPTERS.map((c) => `<div class="h-chap">${c.icon} ${c.n}. ${esc(c.title)}</div>` + Puzzles.TUTORIAL.filter((l) => l.ch === c.n).map((l) => { n++; return `<button type="button" data-puz="${l.id}" class="${done.includes(l.id) ? 'done' : ''}"><span class="n">${done.includes(l.id) ? '✓' : n}</span><b>${esc(l.title)}</b></button>`; }).join('')).join('');
+  }
+  $('#tutList').addEventListener('click', (e) => { const b = e.target.closest('[data-puz]'); if (b) startPuzzle(b.dataset.puz); });
+  $('#btnTut').addEventListener('click', () => showPanel('tut'));
   const startPuzzle = (id) => { socket.emit('createBot', { token, name: myName(), puzzle: id }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }); };
@@ -358,7 +366,7 @@
 
   function renderTop() {
     const o = opp();
-    const lv = S.puzzle ? `🧩 Puzzle ${Puzzles.LIST.findIndex((p) => p.id === S.puzzle.id) + 1}/${Puzzles.LIST.length}` : S.surv ? `🌊 Ondata ${S.phase === 'prep' ? S.surv.wave + 1 : S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
+    const lv = S.puzzle ? (isLesson() ? `📘 Lezione ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}` : `🧩 Puzzle ${puzPool().findIndex((p) => p.id === S.puzzle.id) + 1}/${puzPool().length}`) : S.surv ? `🌊 Ondata ${S.phase === 'prep' ? S.surv.wave + 1 : S.surv.wave}` : S.run && S.bot ? Scalata.STAGES[S.run.stage - 1].name : S.bot ? 'Bot ' + ({ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[S.bot.level] || S.bot.level) : '';
     const oppPill = S.local ? '<span class="pill">Locale · stesso dispositivo</span>'
       : `<span class="pill" title="Avversario"><span class="dot ${S.bot || S.connected[o] ? 'on' : ''}"></span>${S.bot ? lv : S.phase === 'lobby' ? 'In attesa…' : `${S.names && S.names[o] ? esc(S.names[o]) : 'Avversario'} ${S.connected[o] ? 'online' : 'offline'}`}</span>`;
     const nm = (col) => (S.names && S.names[col]) ? ' · ' + esc(S.names[col]) : '';
@@ -411,12 +419,13 @@
       else if (chk && S.turn === S.you) { main = 'Sei sotto scacco!'; sub = 'Proteggi il Re: spostalo, para o elimina chi lo minaccia'; }
       else if (chk) { main = `Scacco al Re ${teamName(S.turn)}`; sub = `Turno del ${teamName(S.turn)}`; }
       else main = S.local ? `Tocca al ${teamName(S.you)}` : S.turn === S.you ? 'Tocca a te' : S.bot ? 'Il bot sta pensando…' : `Turno del ${teamName(S.turn)}`;
-      if (S.puzzle && !sub) sub = `${Puzzles.goalText(puzDef())} · mosse rimaste: ${S.puzzle.moves - S.puzzle.used}`;
+      if (S.puzzle && !sub && isLesson()) sub = puzDef().text;
+      else if (S.puzzle && !sub) sub = `${Puzzles.goalText(puzDef())} · mosse rimaste: ${S.puzzle.moves - S.puzzle.used}`;
       if (S.turn === S.you && S.shieldLock) sub = 'Scudo messo: ora muovi un altro pezzo (quello con lo Scudo no)';
       else if (S.turn === S.you && S.freeUsed) sub = 'Azione gratuita usata: ora muovi un pezzo';
       if (chk) alertBadge = true;
     } else if (S.phase === 'over') {
-      if (S.puzzle) main = S.puzzle.state === 'solved' ? 'Puzzle risolto!' : 'Puzzle non risolto';
+      if (S.puzzle) main = S.puzzle.state === 'solved' ? (isLesson() ? 'Lezione superata!' : 'Puzzle risolto!') : (isLesson() ? 'Non è questa: riprova' : 'Puzzle non risolto');
       else if (S.winner === null) { main = 'Patta'; dot = null; }
       else main = S.winner === S.you ? 'Hai vinto!' : 'Hai perso';
       sub = S.reason || ''; if (S.winner) dot = S.winner;
@@ -693,46 +702,50 @@
   // Puzzle: pannello, fine e azioni
   const PUZ_ACTS = ['puzRetry', 'puzNext', 'puzList', 'puzHint'];
   const puzDef = () => S && S.puzzle ? Puzzles.byId(S.puzzle.id) : null;
+  const isLesson = () => { const d = puzDef(); return !!(d && d.ch); };
+  const puzPool = () => (isLesson() ? Puzzles.TUTORIAL : Puzzles.LIST);
   function puzzleBox() {
     const d = puzDef(), pz = S.puzzle; if (!d) return '';
     const left = pz.moves - pz.used;
+    if (d.ch) return `<div class="box"><h3>📘 ${esc(d.title)}</h3><p>${esc(d.text)}</p><p class="mute"><b>${esc(Puzzles.goalText(d))}</b></p>${pz.state === 'play' ? '<div class="row"><button class="btn sm" type="button" data-act="puzRetry">↻ Ricomincia</button></div>' : ''}</div>`;
     return `<div class="box"><h3>🧩 ${esc(d.title)}</h3><p><b>${esc(Puzzles.goalText(d))}</b>${pz.state === 'play' ? ` · mosse rimaste: <b>${left}</b>` : ''}</p>
       ${d.text ? `<p class="mute">${esc(d.text)}</p>` : ''}
       ${ui.showHint && d.hint ? `<p>💡 ${esc(d.hint)}</p>` : ''}
       ${pz.state === 'play' ? `<div class="row"><button class="btn sm" type="button" data-act="puzHint">${ui.showHint ? 'Nascondi' : '💡 Suggerimento'}</button><button class="btn sm" type="button" data-act="puzRetry">↻ Riprova</button></div>` : ''}</div>`;
   }
   function puzActions() {
-    const pz = S.puzzle, idx = Puzzles.LIST.findIndex((p) => p.id === pz.id), next = Puzzles.LIST[idx + 1];
-    if (pz.state === 'solved') return `<div class="row">${next ? '<button class="btn primary" type="button" data-act="puzNext">Prossimo puzzle</button>' : ''}<button class="btn" type="button" data-act="puzRetry">Rifallo</button><button class="btn" type="button" data-act="puzList">Elenco</button></div>`;
+    const pz = S.puzzle, idx = puzPool().findIndex((p) => p.id === pz.id), next = puzPool()[idx + 1];
+    if (pz.state === 'solved') return `<div class="row">${next ? `<button class="btn primary" type="button" data-act="puzNext">${isLesson() ? 'Prossima lezione' : 'Prossimo puzzle'}</button>` : ''}<button class="btn" type="button" data-act="puzRetry">Rifallo</button><button class="btn" type="button" data-act="puzList">Elenco</button></div>`;
     return '<div class="row"><button class="btn primary" type="button" data-act="puzRetry">Riprova</button><button class="btn" type="button" data-act="puzList">Elenco</button></div>';
   }
   function puzMarkDone() {
     if (S.puzzle.state !== 'solved') return;
-    const d = puzDone(); if (!d.includes(S.puzzle.id)) { d.push(S.puzzle.id); try { store('sm_puz', JSON.stringify(d)); } catch (e) { /* ignora */ } }
+    const d = isLesson() ? tutDone() : puzDone(); if (!d.includes(S.puzzle.id)) { d.push(S.puzzle.id); try { store(isLesson() ? 'sm_tut' : 'sm_puz', JSON.stringify(d)); } catch (e) { /* ignora */ } }
   }
+  function puzMsg() { const d = puzDef(); if (d && d.ch) return (S.puzzle.state === 'solved' ? d.ok : d.ko) || ''; return S.reason || ''; }
   function puzBanner() {
     puzMarkDone();
     const ok = S.puzzle.state === 'solved';
-    return `<div class="banner ${ok ? 'win' : 'lose'}">${ok ? 'Risolto!' : 'Non risolto'}<br><span style="font-weight:600">${esc(S.reason || '')}</span></div>${puzActions()}`;
+    return `<div class="banner ${ok ? 'win' : 'lose'}">${ok ? (isLesson() ? 'Bravo!' : 'Risolto!') : (isLesson() ? 'Riprova' : 'Non risolto')}<br><span style="font-weight:600">${esc(puzMsg())}</span></div>${puzActions()}`;
   }
   function renderPuzEnd(el) {
     puzMarkDone();
     const ok = S.puzzle.state === 'solved';
     el.innerHTML = `<div class="endbox ${ok ? 'win' : 'lose'}"><canvas id="confetti"></canvas>
       <div class="end-ico">${ok ? '🧩' : '💭'}</div>
-      <h2 class="end-title">${ok ? 'Risolto!' : 'Non risolto'}</h2>
-      <p class="end-reason">${esc(S.reason || '')}</p>
+      <h2 class="end-title">${ok ? (isLesson() ? 'Bravo!' : 'Risolto!') : (isLesson() ? 'Non è questa' : 'Non risolto')}</h2>
+      <p class="end-reason">${esc(puzMsg())}</p>
       <div class="end-actions">${puzActions()}<button class="link" type="button" data-act="review">Guarda la scacchiera</button></div></div>`;
     el.hidden = false;
     if (ok) confetti();
   }
   function puzAct(a) {
     if (a === 'puzHint') { ui.showHint = !ui.showHint; return render(); }
-    const id = S.puzzle.id, idx = Puzzles.LIST.findIndex((p) => p.id === id);
+    const id = S.puzzle.id, lesson = isLesson(), pool = puzPool(), idx = pool.findIndex((p) => p.id === id);
     ui.endDismissed = false; ui.showHint = false; $('#endcard').hidden = true;
     socket.emit('leave'); store('sm_room', null);
-    if (a === 'puzList') { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ } return showHome(''); }
-    startPuzzle(a === 'puzNext' ? Puzzles.LIST[idx + 1].id : id);
+    if (a === 'puzList') { try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ } if (lesson) ui.panel = 'tut'; return showHome(''); }
+    startPuzzle(a === 'puzNext' ? pool[idx + 1].id : id);
   }
   function survAct(a) {
     ui.endDismissed = false; ui.prepSel = null;

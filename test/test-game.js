@@ -913,5 +913,16 @@ t('puzzle: p1 si risolve con Regina in b7; mosse finite = non risolto; niente un
   assert.strictEqual(h.phase, 'over'); assert.strictEqual(h.winner, null);
   assert.strictEqual(G.publicState({ code: 'ABCDE', game: h, players: { w: { sid: 'x' }, b: { bot: true } } }, 'w').puzzle.state, 'failed');
 });
+t('tutorial: 11 lezioni in 4 capitoli, tutte risolvibili in modo forzato', () => {
+  assert.ok(PZ.TUTORIAL.length >= 11);
+  assert.strictEqual(new Set(PZ.TUTORIAL.concat(PZ.LIST).map((p) => p.id)).size, PZ.TUTORIAL.length + PZ.LIST.length);
+  for (const c of PZ.CHAPTERS) assert.ok(PZ.TUTORIAL.some((l) => l.ch === c.n), 'capitolo ' + c.n + ' non vuoto');
+  for (const d of PZ.TUTORIAL) {
+    assert.ok(d.text && d.ok && d.ko && PZ.byId(d.id) === d, d.id + ' testi');
+    const g = G.puzzleGame(d);
+    assert.ok(!G.inCheck(g, 'w') && !G.inCheck(g, 'b'), d.id + ' parte senza scacco');
+    assert.ok(PS.firstWinning(g, d.goal, d.moves, false).length > 0, d.id + ' risolvibile');
+  }
+});
 
 console.log(`\n${passed} test passati`);

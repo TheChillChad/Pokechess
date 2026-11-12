@@ -133,3 +133,6 @@
 .h-puz button small{display:block;font-weight:500;opacity:.75;margin-top:2px}
 .h-puz button .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:rgba(242,182,50,.2);font-weight:800;font-size:13px}
 .h-puz button.done .n{background:#2F7A5B;color:#fff}
+
+.h-tut{border-color:#F2B632;box-shadow:0 0 0 1px rgba(242,182,50,.35),0 6px 18px rgba(242,182,50,.12)}
+.h-chap{margin:10px 2px 2px;font-weight:800;font-size:.95rem;opacity:.9}

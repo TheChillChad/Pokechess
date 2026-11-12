@@ -31,7 +31,7 @@ function realWins(g) {
   return null;
 }
 let bad = 0;
-for (const d of Puzzles.LIST) {
+for (const d of Puzzles.LIST.concat(Puzzles.TUTORIAL)) {
   const g = G.puzzleGame(d);
   const t = Date.now();
   const win = P.firstWinning(g, d.goal, d.moves, false);
