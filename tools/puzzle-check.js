@@ -33,6 +33,7 @@ function realWins(g) {
 let bad = 0;
 for (const d of Puzzles.LIST.concat(Puzzles.TUTORIAL)) {
   const g = G.puzzleGame(d);
+  if (d.manual) { console.log(`${G.inCheck(g, 'w') || G.inCheck(g, 'b') ? 'ERRORE' : 'ok  '} ${d.id} ${d.title}: verificato a mano nei test (promozione)`); continue; }
   const t = Date.now();
   const win = P.firstWinning(g, d.goal, d.moves, false);
   let shorter = false;
