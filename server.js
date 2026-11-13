@@ -140,7 +140,7 @@ io.on('connection', (socket) => {
     }
     const mine = Math.random() < 0.5 ? 'w' : 'b';
     const run = data.run ? Scalata.normRun(data.run) : null; // Scalata: livello del bot e bonus dipendono dallo scontro
-    const level = run ? Scalata.STAGES[run.stage - 1].level : ['easy', 'normal', 'hard', 'master'].includes(data.level) ? data.level : 'normal';
+    const level = run ? Scalata.STAGES[run.stage - 1].level : (['easy', 'normal', 'hard', 'master'].includes(data.level) || /^l([1-9]|10)$/.test(data.level)) ? data.level : 'normal';
     const hd = !run && data.mods && data.mods.handicap; // handicap: { level, who: 'me' | 'bot' } solo contro il computer
     const mods = run ? null : { ...(data.mods || {}), handicap: hd ? { level: hd.level, color: hd.who === 'me' ? mine : G.other(mine) } : null };
     const room = { code: newCode(), game: G.newGame(mods, run && { ...run, color: mine }), players: { w: null, b: null }, touched: Date.now() };
@@ -152,7 +152,7 @@ io.on('connection', (socket) => {
     room.bot = { color: bc, level };
     G.startDraft(room.game);
     const hc = room.game.mods.handicap;
-    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}${hc ? ` Handicap ${{ light: 'leggero', medium: 'medio', heavy: 'pesante', extreme: 'estremo' }[hc.level]} per ${hc.color === mine ? 'te' : 'il computer'}.` : ''}`);
+    room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || (run ? 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT : 'livello ' + level.slice(1) + ' di 10')}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}${hc ? ` Handicap ${{ light: 'leggero', medium: 'medio', heavy: 'pesante', extreme: 'estremo' }[hc.level]} per ${hc.color === mine ? 'te' : 'il computer'}.` : ''}`);
     cb({ ok: true, code: room.code });
     broadcast(room);
   });

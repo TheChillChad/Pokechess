@@ -72,7 +72,8 @@
     $('#optHandicapBox').hidden = name !== 'bot';
     saveMods();
     const last = store('sm_lv');
-    document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.id === 'btnBot' + (last || '').charAt(0).toUpperCase() + (last || '').slice(1)));
+    const lastLv = { easy: 'l1', normal: 'l3', hard: 'l7', master: 'l10' }[last] || last; // compatibilità con i vecchi nomi salvati
+    document.querySelectorAll('#home .h-lv').forEach((b) => b.classList.toggle('last', b.dataset.lv === lastLv));
     if (name === 'puz') renderPuzList();
     if (name === 'avv') updateDaily();
     if (name === 'tut') renderTutList();
@@ -185,10 +186,7 @@
   $('#btnSurv').addEventListener('click', () => { const o = $('#survOpts'); o.hidden = !o.hidden; $('#btnSurv').classList.toggle('open', !o.hidden); });
   $('#btnSurvGo').addEventListener('click', () => { store('sm_survrand', $('#survRandom').checked ? '1' : ''); startSurv($('#survRandom').checked); });
   try { $('#survRandom').checked = store('sm_survrand') === '1'; } catch (e) { /* ignora */ }
-  $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
-  $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
-  $('#btnBotHard').addEventListener('click', () => startBot('hard'));
-  $('#btnBotMaster').addEventListener('click', () => startBot('master'));
+  document.querySelectorAll('#home .h-lv').forEach((b) => b.addEventListener('click', () => startBot(b.dataset.lv)));
   $('#btnLocal').addEventListener('click', () => socket.emit('createLocal', { token, mods: getMods() }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }));

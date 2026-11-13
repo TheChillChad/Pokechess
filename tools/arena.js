@@ -26,6 +26,8 @@ function startPosition(bot) {
 function match(start, botW, lvW, botB, lvB) {
   const g = structuredClone(start);
   const bots = { w: [botW, lvW], b: [botB, lvB] };
+  // ARENA_HANDICAP=1: il bot B parte senza Regina (serve a misurare quanto bene il bot A converte un vantaggio in matto)
+  if (process.env.ARENA_HANDICAP && botW !== botB) { const loser = botW === A ? 'b' : 'w'; for (const p of Object.values(g.pieces)) if (p.color === loser && p.role === 'regina') p.alive = false; }
   let plies = 0, tmax = { w: 0, b: 0 };
   while (g.phase !== 'over' && plies < MAX) {
     const c = g.turn;

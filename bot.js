@@ -4,19 +4,30 @@ const G = require('./game.js');
 const S = require('./public/shared.js');
 
 const VAL = { pedone: 1, cavallo: 3, alfiere: 3, torre: 5, regina: 9, re: 0 };
-const LUCK = 1.2; // quanto vale per il bot prendere una casella fortunata
+const LUCK = 1.2;
+const MOPUP = true; // quanto vale per il bot prendere una casella fortunata
 const rnd = (n) => Math.floor(Math.random() * n);
 const shuffle = (a) => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = rnd(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 // valutazione dal punto di vista di `me`: materiale pesato dagli HP rimasti, più un piccolo premio per i pedoni avanzati
 function ev(g, me) {
   if (g.phase === 'over') return g.winner === me ? 1000 : g.winner === null ? 0 : -1000;
-  let v = 0;
+  let v = 0, ek = null;
   for (const p of Object.values(g.pieces)) {
-    if (!p.alive || p.role === 're') continue;
+    if (!p.alive) continue;
+    if (p.role === 're') { if (p.color !== me) ek = p; continue; }
     let x = VAL[p.role] * (0.4 + 0.6 * p.hp / p.maxHp);
     if (p.role === 'pedone') { const adv = p.color === 'w' ? 6 - p.r : p.r - 1; x += 0.04 * adv + (adv >= 4 ? 0.15 * (adv - 3) : 0); }
     v += p.color === me ? x : -x;
+  }
+  // Convertire il vantaggio: quando si è avanti, si spinge il Re avversario verso il bordo e lo si avvicina
+  // (altrimenti il bot si ferma ad "avere più materiale" senza mai dare matto)
+  if (MOPUP && ek && v > 2) {
+    let mk = null;
+    for (const p of Object.values(g.pieces)) if (p.alive && p.role === 're' && p.color === me) mk = p;
+    const edge = Math.abs(ek.r - 3.5) + Math.abs(ek.c - 3.5);
+    const near = mk ? 8 - Math.max(Math.abs(ek.r - mk.r), Math.abs(ek.c - mk.c)) : 0;
+    v += Math.min(v, 6) / 6 * (0.12 * edge + 0.06 * near);
   }
   return v;
 }
@@ -38,11 +49,44 @@ function endSim(sim, color) {
   sim.turn = G.other(color);
 }
 
+// Passo di simulazione leggero (senza log né griglie): copia solo i pezzi toccati dalla mossa (chi muove, il bersaglio, la Torre dell'arrocco).
+// Equivale a simClone + play + endSim, ma molto più veloce. Il test test/test-bot-step.js lo verifica contro la versione lunga.
+function stepSim(sim, color, id, m, gr) {
+  const pieces = Object.assign({}, sim.pieces);
+  const p = Object.assign({}, pieces[id]); pieces[id] = p;
+  const t0 = gr[m.r][m.c];
+  let graveyard = sim.graveyard, moved = false;
+  if (!t0 && p.role === 're' && m.r === p.r && Math.abs(m.c - p.c) === 2) {
+    const rk0 = gr[m.r][m.c > p.c ? 7 : 0], rk = Object.assign({}, rk0); pieces[rk.id] = rk;
+    rk.c = m.c > p.c ? m.c - 1 : m.c + 1; rk.hasMoved = true;
+    p.r = m.r; p.c = m.c; moved = true;
+  } else if (!t0) { p.r = m.r; p.c = m.c; moved = true; }
+  else {
+    const t = Object.assign({}, t0); pieces[t.id] = t;
+    if (t.shield) { t.shield = false; p.boost = false; }
+    else {
+      const { dmg } = G.calcDamage(p, t);
+      p.boost = false;
+      t.hp = Math.max(0, t.hp - dmg);
+      if (t.hp === 0) {
+        t.alive = false;
+        graveyard = { w: sim.graveyard.w, b: sim.graveyard.b };
+        graveyard[t.color] = graveyard[t.color].concat(t.id);
+        p.r = m.r; p.c = m.c; moved = true;
+      }
+    }
+  }
+  if (moved) { p.hasMoved = true; promoSim(sim, p); }
+  for (const k in pieces) { const q = pieces[k]; if (q.color === color && q.frozen) pieces[k] = Object.assign({}, q, { frozen: false }); }
+  return Object.assign({}, sim, { pieces, graveyard, shieldLock: null, turn: G.other(color), lastMove: null });
+}
+
 // Ordine delle mosse: prima quelle che sconfiggono o ferirebbero di più (più potature = ricerca più profonda)
-function ordered(sim, toMove, lm, onlyAttacks) {
-  const gr = G.grid(sim);
+function ordered(sim, toMove, lm, onlyAttacks, gr, ttm) {
+  gr = gr || G.grid(sim);
   const moves = [];
   for (const id of Object.keys(lm)) for (const m of lm[id]) {
+    if (ttm && ttm.id === id && ttm.r === m.r && ttm.c === m.c) { moves.push({ id, m, k: 1000 }); continue; }
     if (m.kind !== 'attack') { if (!onlyAttacks) moves.push({ id, m, k: m.kind === 'castle' ? 0.5 : 0 }); continue; }
     const t = gr[m.r][m.c];
     if (m.shield) { if (!onlyAttacks) moves.push({ id, m, k: 0.1 }); continue; }
@@ -55,10 +99,12 @@ function ordered(sim, toMove, lm, onlyAttacks) {
 // Ricerca a fine percorso: si continua solo con gli attacchi, così il bot non si ferma "a metà scambio"
 // (altrimenti vedrebbe un colpo e non la risposta). Dà anche matto e stallo senza altro lavoro.
 let QS = true;
+let DELTA = true, USE_TT = true;
 const QDEPTH = 3;
 function quiesce(sim, me, toMove, alpha, beta, qd, ply) {
   if (sim.phase === 'over') return ev(sim, me);
-  const lm = G.legalMoves(sim, toMove);
+  const gr = G.grid(sim);
+  const lm = G.legalMoves(sim, toMove, gr);
   if (!Object.keys(lm).length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 + ply : 1000 - ply) : 0;
   const stand = ev(sim, me);
   if (!QS || qd <= 0) return stand;
@@ -66,10 +112,12 @@ function quiesce(sim, me, toMove, alpha, beta, qd, ply) {
   let best = stand;
   if (maximizing) { if (best >= beta) return best; if (best > alpha) alpha = best; }
   else { if (best <= alpha) return best; if (best < beta) beta = best; }
-  for (const { id, m } of ordered(sim, toMove, lm, true)) {
-    const s2 = G.simClone(sim);
-    play(s2, toMove, id, m.r, m.c);
-    endSim(s2, toMove);
+  for (const { id, m } of ordered(sim, toMove, lm, true, gr)) {
+    if (DELTA) { // potatura: un attacco che non può migliorare nemmeno nel caso migliore (materiale + margine) si salta
+      const t = gr[m.r][m.c], gain = VAL[t.role] * (m.kill ? 1 : Math.min(1, (m.dmg || 0) / t.hp)) + 1.2;
+      if (maximizing ? stand + gain <= alpha : stand - gain >= beta) continue;
+    }
+    const s2 = stepSim(sim, toMove, id, m, gr);
     const v = quiesce(s2, me, G.other(toMove), alpha, beta, qd - 1, ply + 1);
     if (maximizing) { if (v > best) best = v; if (best > alpha) alpha = best; }
     else { if (v < best) best = v; if (best < beta) beta = best; }
@@ -82,22 +130,53 @@ function quiesce(sim, me, toMove, alpha, beta, qd, ply) {
 // `toMove` è chi muove nel nodo; a profondità 0 si passa alla ricerca a fine percorso. Scade con il tempo (deadline).
 let DEADLINE = Infinity;
 const TIMEOUT = new Error('timeout');
+let TT = new Map();
+const RC = { re: 1, regina: 2, torre: 3, alfiere: 4, cavallo: 5, pedone: 6 };
+const TC = {}; S.TYPES.forEach((t, i) => { TC[t] = i + 1; });
+function hashSim(sim, toMove) {
+  let h1 = toMove === 'w' ? 0x9e3779b9 : 0x7f4a7c15, h2 = 0x85ebca6b;
+  for (const p of Object.values(sim.pieces)) {
+    if (!p.alive) continue;
+    const x = (p.r * 8 + p.c) | (p.hp << 6) | ((p.frozen ? 1 : 0) << 11) | ((p.shield ? 1 : 0) << 12) | ((p.hasMoved ? 1 : 0) << 13) | (RC[p.role] << 14) | ((TC[p.type] || 0) << 17) | ((p.color === 'w' ? 1 : 0) << 21);
+    h1 = Math.imul(h1 ^ x, 0x85ebca6b) + 0x27d4eb2f | 0; h1 ^= h1 >>> 15;
+    h2 = Math.imul(h2 + x, 0xc2b2ae35) ^ (h2 >>> 13);
+  }
+  return (h1 & 0x1fffff) * 4294967296 + (h2 >>> 0);
+}
 function search(sim, me, toMove, depth, alpha, beta, ply) {
   if (Date.now() > DEADLINE) throw TIMEOUT;
   if (sim.phase === 'over') return ev(sim, me);
   if (depth <= 0) return quiesce(sim, me, toMove, alpha, beta, QDEPTH, ply);
-  const lm = G.legalMoves(sim, toMove);
+  let key = 0, ttm = null;
+  const alpha0 = alpha, beta0 = beta;
+  if (USE_TT) {
+    key = hashSim(sim, toMove);
+    const e = TT.get(key);
+    if (e) {
+      ttm = e.m;
+      if (e.d >= depth) {
+        if (e.f === 0) return e.v;
+        if (e.f === 1 && e.v >= beta) return e.v;
+        if (e.f === 2 && e.v <= alpha) return e.v;
+      }
+    }
+  }
+  const gr = G.grid(sim);
+  const lm = G.legalMoves(sim, toMove, gr);
   if (!Object.keys(lm).length) return G.inCheck(sim, toMove) ? (toMove === me ? -1000 + ply : 1000 - ply) : 0; // matto o stallo
   const maximizing = toMove === me;
-  let best = maximizing ? -Infinity : Infinity;
-  for (const { id, m } of ordered(sim, toMove, lm, false)) {
-    const s2 = G.simClone(sim);
-    play(s2, toMove, id, m.r, m.c);
-    endSim(s2, toMove);
+  let best = maximizing ? -Infinity : Infinity, bm = null;
+  for (const { id, m } of ordered(sim, toMove, lm, false, gr, ttm)) {
+    const s2 = stepSim(sim, toMove, id, m, gr);
     const v = search(s2, me, G.other(toMove), depth - 1, alpha, beta, ply + 1);
-    if (maximizing) { if (v > best) best = v; if (best > alpha) alpha = best; }
-    else { if (v < best) best = v; if (best < beta) beta = best; }
+    if (maximizing) { if (v > best) { best = v; bm = { id, r: m.r, c: m.c }; } if (best > alpha) alpha = best; }
+    else { if (v < best) { best = v; bm = { id, r: m.r, c: m.c }; } if (best < beta) beta = best; }
     if (beta <= alpha) break;
+  }
+  if (USE_TT) {
+    const f = best <= alpha0 ? 2 : best >= beta0 ? 1 : 0;
+    const old = TT.get(key);
+    if (!old || old.d <= depth) TT.set(key, { d: depth, v: best, f, m: bm });
   }
   return best;
 }
@@ -131,6 +210,7 @@ function scoreAll(entries, me, level) {
   const L = resolve(level).L;
   const opp = G.other(me);
   QS = L.qs;
+  if (TT.size > 400000) TT = new Map();
   DEADLINE = Infinity;
   // Dal secondo livello in poi si parte dalle candidate migliori del livello precedente e si usa il punteggio
   // della migliore come limite: le altre vengono scartate presto (stesso risultato, ricerca molto più rapida).
@@ -300,4 +380,4 @@ function needsAction(g, color) {
   return false;
 }
 
-module.exports = { act, needsAction };
+module.exports = { act, needsAction, _sim: { stepSim, play, endSim } };

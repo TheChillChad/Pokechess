@@ -86,8 +86,10 @@ function name(p) {
 function log(g, msg) { g.log.push(msg); if (g.log.length > 80) g.log.shift(); }
 function event(g, r, c, text, kind) { g.event = { seq: ++g.seq, r, c, text, kind }; }
 function grid(g) {
-  const gr = Array.from({ length: 8 }, () => Array(8).fill(null));
-  for (const p of Object.values(g.pieces)) if (p.alive) gr[p.r][p.c] = p;
+  const gr = [];
+  for (let r = 0; r < 8; r++) gr.push([null, null, null, null, null, null, null, null]);
+  const ps = g.pieces;
+  for (const k in ps) { const p = ps[k]; if (p.alive) gr[p.r][p.c] = p; }
   return gr;
 }
 function own(g, color, id) {
@@ -249,16 +251,20 @@ function applyMoveCore(g, color, p, r, c) {
 // Mosse legali: quelle che non lasciano il proprio Re sotto scacco (simulando anche i danni).
 // Il Re avversario non si può mai colpire: si dà scacco e si cerca il matto.
 // Per non copiare la partita a ogni mossa, la posizione si prova sulla griglia e poi si rimette a posto.
-function legalMoves(g, color) {
-  const gr = grid(g);
+function legalMoves(g, color, grPre) {
+  const gr = grPre || grid(g);
   const res = {};
   const foe = color === 'w' ? 'b' : 'w';
   let king = null;
   for (const p of Object.values(g.pieces)) if (p.alive && p.color === color && p.role === 're') king = p;
+  // Scorciatoia (la parte più costosa è controllare lo scacco dopo ogni mossa): se il Re non è sotto scacco e il pezzo
+  // non sta sulla stessa riga, colonna o diagonale del Re, spostarlo non può scoprire il Re, quindi ogni sua mossa è legale.
+  const kingThreat = king ? threatened(gr, king.r, king.c, foe) : false;
   for (const p of Object.values(g.pieces)) {
     if (!p.alive || p.color !== color) continue;
     if (p.frozen || g.shieldLock === p.id) continue; // paralizzato, o appena protetto dallo Scudo
     const mv = [];
+    const safe = king && !kingThreat && p !== king && p.r !== king.r && p.c !== king.c && Math.abs(p.r - king.r) !== Math.abs(p.c - king.c);
     for (const m of movesFor(p, gr)) {
       const target = m.kind === 'attack' ? gr[m.r][m.c] : null;
       if (target && target.role === 're') continue;
@@ -266,7 +272,8 @@ function legalMoves(g, color) {
       // (con lo Scudo, o se il bersaglio sopravvive, nulla si muove)
       const lands = !target || (!target.shield && calcDamage(p, target).dmg >= target.hp);
       let bad;
-      if (!lands) bad = king ? threatened(gr, king.r, king.c, foe) : false;
+      if (!king || safe) bad = false;
+      else if (!lands) bad = kingThreat;
       else {
         const fr = p.r, fc = p.c;
         gr[fr][fc] = null; gr[m.r][m.c] = p; p.r = m.r; p.c = m.c;
@@ -280,7 +287,7 @@ function legalMoves(g, color) {
       if (target) Object.assign(m, preview(p, target));
       mv.push(m);
     }
-    if (p.role === 're' && !p.hasMoved && !inCheck(g, color)) {
+    if (p.role === 're' && !p.hasMoved && !kingThreat) {
       for (const side of [-1, 1]) {
         const rook = gr[p.r][side < 0 ? 0 : 7];
         if (!rook || rook.color !== color || rook.role !== 'torre' || rook.hasMoved || rook.frozen) continue;
