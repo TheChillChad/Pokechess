@@ -136,3 +136,7 @@
 
 .h-tut{border-color:#F2B632;box-shadow:0 0 0 1px rgba(242,182,50,.35),0 6px 18px rgba(242,182,50,.12)}
 .h-chap{margin:10px 2px 2px;font-weight:800;font-size:.95rem;opacity:.9}
+.h-sopts{margin:-4px 0 6px;padding:10px 14px 14px;border:1px solid rgba(244,241,234,.18);border-top:0;border-radius:0 0 14px 14px;background:rgba(255,255,255,.04)}
+.h-sopts .h-hint{margin:0 0 10px}
+.h-sopts .btn{width:100%;margin-top:10px}
+#btnSurv.open{border-bottom-left-radius:0;border-bottom-right-radius:0}

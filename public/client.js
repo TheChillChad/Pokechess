@@ -182,7 +182,8 @@
   }); };
   $('#puzList').addEventListener('click', (e) => { const b = e.target.closest('[data-puz]'); if (b) startPuzzle(b.dataset.puz); });
   $('#btnPuz').addEventListener('click', () => showPanel('puz'));
-  $('#btnSurv').addEventListener('click', () => { store('sm_survrand', $('#survRandom').checked ? '1' : ''); startSurv($('#survRandom').checked); });
+  $('#btnSurv').addEventListener('click', () => { const o = $('#survOpts'); o.hidden = !o.hidden; $('#btnSurv').classList.toggle('open', !o.hidden); });
+  $('#btnSurvGo').addEventListener('click', () => { store('sm_survrand', $('#survRandom').checked ? '1' : ''); startSurv($('#survRandom').checked); });
   try { $('#survRandom').checked = store('sm_survrand') === '1'; } catch (e) { /* ignora */ }
   $('#btnBotEasy').addEventListener('click', () => startBot('easy'));
   $('#btnBotNormal').addEventListener('click', () => startBot('normal'));
