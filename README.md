@@ -14,7 +14,7 @@ Uno clicca **Crea stanza** e manda il link (o il codice di 5 lettere) all'amico.
 La home ha 4 pulsanti, ognuno con la sua sotto-schermata:
 
 - **👥 Con amici**: crea o entra in una stanza online, oppure **due giocatori sullo stesso dispositivo** (la vista passa da Blu a Rosso a ogni turno).
-- **🤖 Contro il computer**: 4 livelli di bot (**Facile**, **Normale**, **Difficile**, **Maestro**: i due più alti guardano più mosse avanti, con un limite di tempo per mossa).
+- **🤖 Contro il computer**: 10 livelli di bot (da **Principiante** a **Maestro**: più sono alti, più mosse guardano avanti, con un limite di tempo per mossa).
 - **📘 Impara a giocare**: tutorial a lezioni guidate (basi degli scacchi, tipi, strumenti, tattica).
 - **🏆 Avventure** (con il **📅 Puzzle del giorno**: un puzzle breve al giorno, serie di giorni e «Copia risultato»): **Scalata** (8 scontri contro bot sempre più forti; dopo ogni vittoria scegli un bonus; se perdi si ricomincia) e **Sopravvivenza** (ondate casuali di nemici senza Re: la tua squadra si consuma, ogni 3 ondate c'è un bonus, e prima di ogni ondata sistemi i pezzi nelle prime 3 file) e **Puzzle** (19 posizioni da risolvere, dalle più facili alle più difficili in poche mosse: matto o sconfiggere un pezzo, anche con gli strumenti).
 - **🧪 Laboratorio**: campo di prova, come si gioca, tabella dei tipi.
