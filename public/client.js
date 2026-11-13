@@ -700,7 +700,7 @@
     const cards = Sh.ITEM_IDS.map((i) => {
       const n = ui.picks.filter((x) => x === i).length;
       return `<button class="icard ${n ? 'on' : ''}" type="button" data-act="pick" data-item="${i}" ${ui.picks.length >= N || n >= capOf(i) ? 'disabled' : ''}>
-        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b>${capOf(i) < N ? ` <small class="mute">(max ${capOf(i)})</small>` : ''}<span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
+        <div><b>${Sh.ITEMS[i].icon} ${Sh.ITEMS[i].label}</b>${capOf(i) < N ? ` <small class="mute">(max ${capOf(i)})</small> ` : ''}<span>${Sh.ITEMS[i].desc}</span></div>${n ? `<span class="n">×${n}</span>` : ''}</button>`;
     }).join('');
     const forced = S.kit.forced.length ? `<p class="mute">In più ricevi: ${S.kit.forced.map((i) => Sh.ITEMS[i].icon + ' ' + Sh.ITEMS[i].label).join(', ')}.</p>` : '';
     return `${choiceBox()}<div class="box"><h3>Scegli ${N} strument${N === 1 ? 'o' : 'i'}</h3>
