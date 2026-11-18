@@ -80,8 +80,26 @@
   }
   function render() {
     const b = $('#accBtn'); if (!b) return;
-    b.innerHTML = user ? '<i>👤</i><b>' + (user.email || 'Account').replace(/</g, '') + '</b><small>Progressi salvati · tocca per gestire</small>'
-      : '<i>👤</i><b>Accedi o registrati</b><small>Facoltativo: stessi progressi su ogni dispositivo</small>';
+    b.innerHTML = '👤' + (user ? '<i class="h-dot"></i>' : '');
+    b.title = user ? 'Account: ' + (user.email || '') : 'Accedi o registrati';
+    b.setAttribute('aria-label', b.title);
+  }
+  function settings() {
+    let m = $('#accModal'); if (m) m.remove();
+    m = document.createElement('div'); m.id = 'accModal'; m.className = 'acc-back';
+    const muted = window.Sfx && Sfx.isMuted();
+    m.innerHTML = '<div class="acc-box"><button type="button" class="btn acc-x" data-a="close" aria-label="Chiudi">✕</button><h3>⚙️ Impostazioni</h3>' +
+      '<button type="button" class="btn acc-row" data-a="snd"><span>Effetti sonori</span><b id="accSnd">' + (muted ? 'Spenti 🔇' : 'Accesi 🔊') + '</b></button>' +
+      '<button type="button" class="btn acc-row" data-a="acc"><span>👤 Account</span><b>' + (user ? 'Collegato' : 'Accedi') + '</b></button>' +
+      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div><div class="acc-row acc-off"><span>Tema chiaro/scuro</span><b>in arrivo</b></div><div class="acc-row acc-off"><span>Lingua</span><b>in arrivo</b></div></div>';
+    m.addEventListener('click', (ev) => {
+      if (ev.target === m) return m.remove();
+      const a = ev.target.closest('[data-a]'); if (!a) return;
+      if (a.dataset.a === 'close') m.remove();
+      else if (a.dataset.a === 'acc') modal();
+      else if (a.dataset.a === 'snd' && window.Sfx) { Sfx.setMuted(!Sfx.isMuted()); $('#accSnd').textContent = Sfx.isMuted() ? 'Spenti 🔇' : 'Accesi 🔊'; }
+    });
+    document.body.appendChild(m);
   }
   function modal(mode) {
     let m = $('#accModal'); if (m) m.remove();
@@ -140,12 +158,13 @@
   }
 
   function init() {
-    const nameInput = $('#nameInput');
-    if (nameInput && !$('#accBtn')) {
-      const b = document.createElement('button');
-      b.id = 'accBtn'; b.type = 'button'; b.className = 'btn h-big h-acc';
-      nameInput.parentNode.insertBefore(b, nameInput);
-      b.addEventListener('click', () => modal());
+    const home = $('#home');
+    if (home && !$('#accBtn')) {
+      const t = document.createElement('div'); t.className = 'h-top';
+      t.innerHTML = '<button id="setBtn" type="button" class="h-round" title="Impostazioni" aria-label="Impostazioni">⚙️</button><button id="accBtn" type="button" class="h-round"></button>';
+      home.appendChild(t);
+      $('#setBtn').addEventListener('click', () => settings());
+      $('#accBtn').addEventListener('click', () => modal());
     }
     try { sb = window.supabase.createClient(URL, KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true } }); } catch (e) { sb = null; }
     render();
