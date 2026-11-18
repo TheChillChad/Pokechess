@@ -9,7 +9,7 @@
   const ui = { sel: null, inspect: null, item: null, draftPiece: null, picks: [], rc: {}, seq: null, endDismissed: false, sb: { mode: 'edit', sq: null, moving: null, add: { color: 'w', role: 'pedone', type: null } } };
 
   // ---------- identità (per rientrare nella stanza dopo un ricaricamento) ----------
-  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* ignora */ } return null; }
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); if (window.EMAccount) window.EMAccount.touch(k); } catch (e) { /* ignora */ } return null; }
   const token = (() => {
     let t = store('sm_token');
     if (!t) { t = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'tk' + Math.random().toString(36).slice(2) + Date.now().toString(36); store('sm_token', t); }
