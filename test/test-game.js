@@ -948,6 +948,15 @@ t('puzzle del giorno: 21 puzzle risolvibili, uno per giorno a partire dal 13/11/
   assert.strictEqual(PZ.dailyOf('2026-11-14').def.id, 'd2');
   assert.strictEqual(PZ.dailyOf('2026-12-03').def.id, 'd21');
   assert.strictEqual(PZ.dailyOf('2026-12-03').repeat, false);
+  { // puzzle speciale del 27/11: una sola soluzione, non sposta la sequenza
+    const sp = PZ.dailyOf('2026-11-27').def, g = G.puzzleGame(sp);
+    assert.strictEqual(sp.id, 'd0');
+    assert.ok(!G.inCheck(g, 'w') && !G.inCheck(g, 'b'));
+    assert.strictEqual(PS.firstWinning(g, sp.goal, sp.moves, false).length, 1);
+    assert.ok(PZ.byId('d0') === sp && sp.koList.length >= 5 && sp.ok);
+    assert.strictEqual(PZ.dailyOf('2026-11-26').def.id, 'd14');
+    assert.strictEqual(PZ.dailyOf('2026-11-28').def.id, 'd16');
+  }
   assert.strictEqual(PZ.dailyOf('2026-12-04').def.id, 'd1'); // finiti: si riparte
   assert.strictEqual(PZ.dailyOf('2026-12-04').repeat, true);
   assert.strictEqual(PZ.dailyOf('2026-11-01').def.id, 'd1'); // prima della partenza

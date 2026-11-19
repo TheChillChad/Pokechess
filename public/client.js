@@ -736,7 +736,7 @@
     if (isDaily()) { const dd = dailyData(), k = localDate(); if (!dd.done[k]) { dd.done[k] = dd.tries[k] || 1; dailySave(dd); } return; }
     const d = isLesson() ? tutDone() : puzDone(); if (!d.includes(S.puzzle.id)) { d.push(S.puzzle.id); try { store(isLesson() ? 'sm_tut' : 'sm_puz', JSON.stringify(d)); } catch (e) { /* ignora */ } }
   }
-  function puzMsg() { if (isDaily() && S.puzzle.state === 'solved') { const n = dailyData().done[localDate()] || 1, st = dailyStreak(); return `Risolto in ${n} ${n === 1 ? 'tentativo' : 'tentativi'} · serie ${st} ${st === 1 ? 'giorno' : 'giorni'}`; } const d = puzDef(); if (d && d.ch) return (S.puzzle.state === 'solved' ? d.ok : d.ko) || ''; return S.reason || ''; }
+  function puzMsg() { const sd = puzDef(); if (sd && sd.koList && S.puzzle.state === 'failed') return sd.koList[((dailyData().tries[localDate()] || 1) - 1) % sd.koList.length]; if (isDaily() && S.puzzle.state === 'solved') { const n = dailyData().done[localDate()] || 1, st = dailyStreak(); return (sd && sd.ok ? sd.ok + ' · ' : '') + `Risolto in ${n} ${n === 1 ? 'tentativo' : 'tentativi'} · serie ${st} ${st === 1 ? 'giorno' : 'giorni'}`; } const d = puzDef(); if (d && d.ch) return (S.puzzle.state === 'solved' ? d.ok : d.ko) || ''; return S.reason || ''; }
   function puzBanner() {
     puzMarkDone();
     const ok = S.puzzle.state === 'solved';

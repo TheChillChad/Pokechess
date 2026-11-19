@@ -227,13 +227,21 @@
     {"id":"d21","title":"Puzzle del giorno","text":"","hint":"Il primo passo prepara il secondo: ti aiuta la Paralisi.","goal":{"type":"mate"},"moves":2,"w":[["re",null,0,2,3],["alfiere","ghiaccio",5,4,3],["torre","buio",7,3,1],["torre","acqua",8,5,1],["torre","fuoco",6,7,4]],"b":[["re",null,0,0,6],["alfiere","buio",6,3,3]],"items":{"w":["paralisi","metamorfosi"],"b":[]}},
   ];
   // dateStr = 'YYYY-MM-DD' (data locale del giocatore). Restituisce {def, n, repeat} (n = numero del giorno, da 1).
+  // Puzzle speciali per data (non spostano la sequenza dei puzzle del giorno)
+  const DAILY_SPECIAL = {
+    '2026-11-27': {"id":"d0","title":"Duello di compleanno!","text":"È ora del duello, Matteo! Devi credere nel cuore dei pezzi.","hint":"Prima di attaccare, ferma la carta più pericolosa dell'avversario. Poi avvicina il tuo Re.",
+      "ok":"Duello vinto! Il cuore dei pezzi ti ha ascoltato. Buon compleanno Matteo! 🎂🦈 (Yare yare… matto.)",
+      "koList":["Hai attivato la mia carta trappola! Riprova.","È ora del duello! Rimescola e riprova.","Il cuore dei pezzi non mente: ascoltalo meglio.","Yare yare daze… non era questa la mossa.","Tutto come previsto… dal Re rosso. Riprova!","Devi catturarli tutti! O almeno… dare matto.","Anche i Faraoni sbagliano la prima mano.","Non è ancora finita! Pesca un'altra idea."],
+      "goal":{"type":"mate"},"moves":2,"w":[["re",null,0,3,6],["pedone","fuoco",2,5,3],["torre","psico",7,4,5],["cavallo","fuoco",7,6,5]],"b":[["re",null,0,0,6],["pedone","acqua",2,1,7],["regina","acqua",10,1,0]],"items":{"w":["paralisi","bomba"],"b":[]}}
+  };
   function dailyOf(dateStr) {
     const t = (x) => { const [y, m, d] = x.split('-').map(Number); return Date.UTC(y, m - 1, d); };
     const k = Math.round((t(dateStr) - t(DAILY_START)) / 864e5);
+    if (DAILY_SPECIAL[dateStr]) return { def: DAILY_SPECIAL[dateStr], n: Math.max(k, 0) + 1, repeat: false, special: true };
     if (k < 0) return { def: DAILY[0], n: 1, repeat: false };
     return { def: DAILY[k % DAILY.length], n: k + 1, repeat: k >= DAILY.length };
   }
-  const byId = (id) => LIST.find((p) => p.id === id) || TUTORIAL.find((p) => p.id === id) || DAILY.find((p) => p.id === id) || null;
+  const byId = (id) => LIST.find((p) => p.id === id) || TUTORIAL.find((p) => p.id === id) || DAILY.find((p) => p.id === id) || Object.values(DAILY_SPECIAL).find((p) => p.id === id) || null;
   const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
-  return { LIST, TUTORIAL, CHAPTERS, DAILY, DAILY_START, dailyOf, byId, goalText };
+  return { LIST, TUTORIAL, CHAPTERS, DAILY, DAILY_SPECIAL, DAILY_START, dailyOf, byId, goalText };
 });
