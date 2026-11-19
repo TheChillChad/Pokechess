@@ -3,7 +3,7 @@
 (function () {
   const URL = 'https://oqkpnkhhyhbxbxgcjzgv.supabase.co';
   const KEY = 'sb_publishable_RA7r2pQIOIfiZHXtXJdpZA_t28izJeE'; // chiave pubblica: è fatta per stare nel sito
-  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run'];
+  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme'];
   let sb = null, user = null, timer = null, running = false, again = false;
   const $ = (s) => document.querySelector(s);
   const rd = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -84,6 +84,8 @@
     b.title = user ? 'Account: ' + (user.email || '') : 'Accedi o registrati';
     b.setAttribute('aria-label', b.title);
   }
+  const TH = { dark: 'Scuro 🌙', light: 'Chiaro ☀️', auto: 'Automatico 📱' };
+  const themeLabel = () => TH[window.EMTheme ? EMTheme.get() : 'dark'];
   function settings() {
     let m = $('#accModal'); if (m) m.remove();
     m = document.createElement('div'); m.id = 'accModal'; m.className = 'acc-back';
@@ -91,12 +93,13 @@
     m.innerHTML = '<div class="acc-box"><button type="button" class="btn acc-x" data-a="close" aria-label="Chiudi">✕</button><h3>⚙️ Impostazioni</h3>' +
       '<button type="button" class="btn acc-row" data-a="snd"><span>Effetti sonori</span><b id="accSnd">' + (muted ? 'Spenti 🔇' : 'Accesi 🔊') + '</b></button>' +
       '<button type="button" class="btn acc-row" data-a="acc"><span>👤 Account</span><b>' + (user ? 'Collegato' : 'Accedi') + '</b></button>' +
-      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div><div class="acc-row acc-off"><span>Tema chiaro/scuro</span><b>in arrivo</b></div><div class="acc-row acc-off"><span>Lingua</span><b>in arrivo</b></div></div>';
+      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<div class="acc-row acc-off"><span>Lingua</span><b>in arrivo</b></div></div>';
     m.addEventListener('click', (ev) => {
       if (ev.target === m) return m.remove();
       const a = ev.target.closest('[data-a]'); if (!a) return;
       if (a.dataset.a === 'close') m.remove();
       else if (a.dataset.a === 'acc') modal();
+      else if (a.dataset.a === 'theme' && window.EMTheme) { const o = ['dark', 'light', 'auto']; EMTheme.set(o[(o.indexOf(EMTheme.get()) + 1) % 3]); $('#accTh').textContent = themeLabel(); }
       else if (a.dataset.a === 'snd' && window.Sfx) { Sfx.setMuted(!Sfx.isMuted()); $('#accSnd').textContent = Sfx.isMuted() ? 'Spenti 🔇' : 'Accesi 🔊'; }
     });
     document.body.appendChild(m);

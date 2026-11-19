@@ -1,0 +1,55 @@
+/* Tema chiaro (si attiva con html[data-theme=light]; il tema scuro è quello di game.css/home.css).
+   Parte generata dalle regole con colori fissi di game.css e home.css: se aggiungi colori fissi scuri/bianchi là, aggiungi qui l'equivalente chiaro. */
+html[data-theme=light]{color-scheme:light;
+  --bg:#F4F1EA;--ink:#1E2230;--mute:rgba(30,34,48,.66);--line:rgba(30,34,48,.15);--card:rgba(255,255,255,.75);
+  --glass:rgba(30,34,48,.05);--glass2:rgba(30,34,48,.09);--gold:#9A6A10;--accent:#9A6A10;--blue:#3B6FD8;--red:#D8493B;
+  --cream:#1E2230;--night:#EAF1F6}
+html[data-theme=light] body::before{background:radial-gradient(60vmax 50vmax at 5% 0%,rgba(79,163,232,.18),transparent 70%),radial-gradient(55vmax 45vmax at 100% 100%,rgba(240,138,75,.14),transparent 70%),radial-gradient(50vmax 40vmax at 95% 10%,rgba(201,127,227,.12),transparent 70%)}
+html[data-theme=light] .tb-mate{color:#B7791F}
+html[data-theme=light] #home .h-bg .h-blob{opacity:.18}
+html[data-theme=light] .h-round{color:#1E2230}
+html[data-theme=light] .acc-box h3,html[data-theme=light] .acc-box p{color:#1E2230}
+html[data-theme=light] .acc-box input{color:#1E2230}
+html[data-theme=light] .acc-link{color:#2F5FBF}
+html[data-theme=light] .acc-msg{color:#B3261E}html[data-theme=light] .acc-msg.ok{color:#2F7A5B}
+html[data-theme=light] #home.bday{--cream:#F4F1EA}
+html[data-theme=light] #home.bday .btn{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.2)}
+html[data-theme=light] body{background:#F4F1EA}
+html[data-theme=light] .btn{border:1px solid rgba(30,34,48,.16)}
+html[data-theme=light] .btn:hover:not(:disabled){border-color:rgba(30,34,48,.32)}
+html[data-theme=light] #topbar{background:rgba(244,241,234,.92)}
+html[data-theme=light] button.pill:hover{background:rgba(30,34,48,.2)}
+html[data-theme=light] #status{border-left:5px solid var(--team,rgba(30,34,48,.25))}
+html[data-theme=light] #board{border:5px solid #9C8B66}
+html[data-theme=light] .sq.mv::after{background:rgba(30,34,48,.45)}
+html[data-theme=light] .progress{background:rgba(30,34,48,.1)}
+html[data-theme=light] .icard .n{background:rgba(30,34,48,.14)}
+html[data-theme=light] .chip{background:rgba(30,34,48,.12)}
+html[data-theme=light] .log div{background:rgba(30,34,48,.06)}
+html[data-theme=light] .banner.draw{background:rgba(30,34,48,.1)}
+html[data-theme=light] dialog{background:#FFFFFF}
+html[data-theme=light] .endbox{background:linear-gradient(180deg,#FFFFFF,#F1ECDD);border:1px solid rgba(30,34,48,.18)}
+html[data-theme=light] .sbc:hover{border-color:rgba(30,34,48,.35)}
+html[data-theme=light] .h-lead{color:rgba(30,34,48,.72)}
+html[data-theme=light] #home .btn{background:rgba(30,34,48,.06);border:1px solid rgba(30,34,48,.16)}
+html[data-theme=light] #home .btn:hover:not(:disabled){background:rgba(30,34,48,.12);border-color:rgba(30,34,48,.34)}
+html[data-theme=light] #home .or{color:rgba(30,34,48,.55)}
+html[data-theme=light] #home .joinrow input{background:rgba(30,34,48,.07);border:1px solid rgba(30,34,48,.16)}
+html[data-theme=light] #home .joinrow input::placeholder{color:rgba(30,34,48,.4)}
+html[data-theme=light] #home .h-name{background:rgba(30,34,48,.07);border:1px solid rgba(30,34,48,.16)}
+html[data-theme=light] #home .h-name::placeholder{color:rgba(30,34,48,.4)}
+html[data-theme=light] #home .h-opts{background:rgba(30,34,48,.06);border:1px solid rgba(30,34,48,.14)}
+html[data-theme=light] #home .h-optrow select{background:rgba(30,34,48,.08);border:1px solid rgba(30,34,48,.18)}
+html[data-theme=light] #home .h-hint{color:rgba(30,34,48,.55)}
+html[data-theme=light] .sc-ladder li i{border:2px solid rgba(30,34,48,.3)}
+html[data-theme=light] .sc-card{background:rgba(30,34,48,.06);border:1px solid rgba(30,34,48,.16)}
+html[data-theme=light] .sc-bonus{background:rgba(30,34,48,.07);border:1px solid rgba(30,34,48,.2)}
+html[data-theme=light] .sc-bonus:hover{background:rgba(30,34,48,.13)}
+html[data-theme=light] .sc-chip{background:rgba(30,34,48,.1)}
+html[data-theme=light] .h-puz button{background:rgba(30,34,48,.06);border:1px solid rgba(30,34,48,.14)}
+html[data-theme=light] .h-sopts{border:1px solid rgba(30,34,48,.18);background:rgba(30,34,48,.04)}
+html[data-theme=light] .h-round{border:1px solid rgba(30,34,48,.25);background:rgba(255,255,255,.85)}
+html[data-theme=light] .h-dot{border:2px solid #FFFFFF}
+html[data-theme=light] .acc-off{border:1px dashed #CFC7B0}
+html[data-theme=light] .acc-box{background:#FFFFFF;border:1px solid #CFC7B0;color:#1E2230}
+html[data-theme=light] .acc-box input{border:1px solid #CFC7B0;background:#F4F1EA}
