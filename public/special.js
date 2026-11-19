@@ -1,6 +1,6 @@
 // Giorni speciali (tema solo per quella data, secondo l'orologio del dispositivo).
 (function () {
-  const SPECIAL = { '2026-11-27': { name: 'Matteo', title: 'EleMatteo', word: 'MATTEO' } };
+  const SPECIAL = { '2026-11-27': { name: 'Matteo', title: 'EleMatteo', word: 'MATTEO', mate: 'Matteo' } };
   const d = new Date();
   const today = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   const sp = SPECIAL[today];

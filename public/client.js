@@ -391,7 +391,7 @@
     if (S.spectator) {
       $('#topbar').innerHTML = `
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
-      <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
+      <h1><span class="tb-ele">Ele</span><span class="tb-mate">${window.SPECIAL_DAY ? SPECIAL_DAY.mate : 'Mate'}</span></h1>
       <span class="pill">👁 Spettatore</span>
       <span class="pill"><span class="dot ${S.connected.w ? 'on' : ''}"></span>Blu${nm('w')}</span><span class="pill"><span class="dot ${S.connected.b ? 'on' : ''}"></span>Rosso${nm('b')}</span>
       ${survPill}${modPill}${modPill2}${hcPill}${eyes}
@@ -403,7 +403,7 @@
     }
     $('#topbar').innerHTML = `
       <button class="pill" id="btnHome" type="button" title="Torna alla home" aria-label="Torna alla home">← Home</button>
-      <h1><span class="tb-ele">Ele</span><span class="tb-mate">Mate</span></h1>
+      <h1><span class="tb-ele">Ele</span><span class="tb-mate">${window.SPECIAL_DAY ? SPECIAL_DAY.mate : 'Mate'}</span></h1>
       ${S.sandbox && ui.sb.mode === 'edit' ? '' : `<span class="pill team-${S.you}"><span class="tdot"></span>${S.local ? 'Gioca il ' : 'Sei '}${teamName(S.you)}${S.local ? '' : nm(S.you)}</span>`}
       ${S.sandbox ? '<span class="pill">🧪 Campo di prova</span>' : oppPill}${runPill}${survPill}${modPill}${modPill2}${hcPill}${eyes}
       ${S.bot || S.local ? '' : `<button class="pill" id="btnCopy" type="button" title="Copia il link da mandare all'amico">Stanza ${S.code} · copia link</button>`}
