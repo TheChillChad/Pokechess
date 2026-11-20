@@ -103,6 +103,8 @@
   });
   socket.on('disconnect', () => toast('Connessione persa, riprovo…'));
   socket.on('errore', (m) => toast(m));
+  socket.on('save', (d) => { const r = runGet(); if (r.playing && !r.done) { r.save = d; runSet(r); } });
+
   socket.on('state', (st) => {
     const prev = S;
     S = st;
@@ -209,12 +211,12 @@
     else ui.rc[k] = el.value;
     render();
   });
-  const RUN0 = () => ({ stage: 1, bonuses: [], offer: null, playing: null, done: false, msg: '' });
+  const RUN0 = () => ({ stage: 1, bonuses: [], offer: null, playing: null, save: null, done: false, msg: '' });
   function runGet() { try { const r = JSON.parse(store('sm_run')); if (r && r.stage) return { ...RUN0(), ...r }; } catch (e) { /* ignora */ } return RUN0(); }
   function runSet(r) { store('sm_run', JSON.stringify(r)); }
   // Esito di uno scontro: vittoria = bonus (o fine), patta = si ripete, sconfitta = Rivincita o si ricomincia
   function scalResult(outcome, prefix) {
-    const r = runGet(); r.playing = null;
+    const r = runGet(); r.playing = null; r.save = null;
     if (outcome === 'win') {
       if (r.stage >= Scalata.STAGE_COUNT) { r.done = true; r.msg = ''; } else { r.offer = Scalata.offer(r); r.msg = 'Scontro vinto! Scegli un bonus.'; }
     } else if (outcome === 'draw') r.msg = 'Patta: lo scontro si ripete, non perdi nulla.';
@@ -235,7 +237,7 @@
   }
   function showScal() {
     let r = runGet();
-    if (r.playing) r = scalResult('lose', 'Hai lasciato lo scontro: conta come sconfitta.');
+    if (r.playing && !r.save) { r.playing = null; runSet(r); } // niente salvataggio: nessuna penalità
     $('#home').hidden = true; $('#game').hidden = true; $('#scal').hidden = false;
     $('#scal').scrollTop = 0;
     renderScal();
@@ -254,7 +256,8 @@
       main = `<div class="sc-card"><h2>Scegli un bonus</h2><p class="mute">Resta con te fino alla fine della scalata.</p>${r.offer.map((id) => { const B = Scalata.BONUSES[id]; return `<button class="sc-bonus${B.price ? ' price' : ''}" type="button" data-sc="pick" data-id="${id}"><b>${B.icon} ${B.label}</b>${B.price ? '<em>con un prezzo</em>' : ''}<span>${esc(B.desc)}</span></button>`; }).join('')}</div>`;
     } else {
       const info = stageInfo(st);
-      main = `<div class="sc-card"><h2>Scontro ${r.stage} di ${Scalata.STAGE_COUNT}: ${st.name}</h2>${info ? `<p class="mute">Vantaggi dell'avversario: ${esc(info)}.</p>` : '<p class="mute">Nessun vantaggio per l\'avversario.</p>'}<button class="btn primary" type="button" data-sc="fight">Combatti</button></div>`;
+      if (r.save) main = `<div class="sc-card"><h2>Scontro ${r.stage} di ${Scalata.STAGE_COUNT}: ${st.name}</h2><p class="mute">💾 Partita salvata: riprendi dalla stessa posizione.</p><button class="btn primary" type="button" data-sc="resume">Continua lo scontro</button><button class="btn" type="button" data-sc="abandon">Abbandona (conta come sconfitta)</button></div>`;
+      else main = `<div class="sc-card"><h2>Scontro ${r.stage} di ${Scalata.STAGE_COUNT}: ${st.name}</h2>${info ? `<p class="mute">Vantaggi dell'avversario: ${esc(info)}.</p>` : '<p class="mute">Nessun vantaggio per l\'avversario.</p>'}<button class="btn primary" type="button" data-sc="fight">Combatti</button></div>`;
     }
     $('#scBody').innerHTML = `<button class="link sc-back" type="button" data-sc="home">← Home</button>
       <h1 class="sc-title">🏆 Scalata</h1>
@@ -295,6 +298,15 @@
         runSet(r); renderScal(); break;
       }
       case 'restart': if (r.done || confirm('Ricominciare la scalata da capo? Perdi tutti i bonus.')) { runSet(RUN0()); renderScal(); } break;
+      case 'resume':
+        socket.emit('resumeRun', { token, name: myName(), run: { stage: r.stage, bonuses: r.bonuses }, save: r.save }, (res) => {
+          if (res && res.ok) { const r2 = runGet(); r2.playing = res.code; r2.msg = ''; runSet(r2); enterRoom(res.code); }
+          else { toast((res && res.error) || 'Errore'); const r2 = runGet(); r2.save = null; r2.playing = null; runSet(r2); renderScal(); }
+        });
+        break;
+      case 'abandon':
+        if (confirm('Abbandonare lo scontro? Conta come sconfitta.')) { scalResult('lose', 'Hai abbandonato lo scontro.'); renderScal(); }
+        break;
       case 'fight':
         socket.emit('createBot', { token, name: myName(), run: { stage: r.stage, bonuses: r.bonuses } }, (res) => {
           if (res && res.ok) { const r2 = runGet(); r2.playing = res.code; r2.msg = ''; runSet(r2); enterRoom(res.code); } else toast((res && res.error) || 'Errore');
@@ -998,12 +1010,14 @@
 
   // ---------- uscita, rivincita e schermata di fine partita ----------
   function leaveRoom() {
-    if (S && !S.spectator && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
-    if (S && !S.spectator && !S.sandbox && (S.bot || S.local) && !S.puzzle && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
+    const inRun = !!(S && S.run && !S.spectator && S.phase !== 'over');
+    if (S && !S.spectator && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !inRun && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
+    if (S && !S.spectator && !S.sandbox && (S.bot || S.local) && !S.puzzle && !inRun && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
     socket.emit('leave');
     store('sm_room', null);
     try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
     ui.endDismissed = false; $('#endcard').hidden = true;
+    if (inRun) { S = null; roomCode = null; showScal(); toast('Scontro salvato: riprendi dalla Scalata'); return; }
     showHome('');
   }
   document.addEventListener('click', (e) => {

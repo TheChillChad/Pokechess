@@ -6,6 +6,7 @@ const { Server } = require('socket.io');
 const G = require('./game.js');
 const Bot = require('./bot.js');
 const Scalata = require('./public/scalata.js');
+const Sh = require('./public/shared.js');
 const Survival = require('./public/survival.js');
 const Puzzles = require('./public/puzzles.js');
 
@@ -72,7 +73,37 @@ function broadcast(room) {
     if (pl && pl.sid) io.to(pl.sid).emit('state', G.publicState(room, color));
   }
   sendSpectators(room);
+  if (room.run && room.bot) sendSave(room);
   scheduleBot(room);
+}
+
+// Scalata: a ogni cambio di stato il giocatore riceve un salvataggio della partita (lo tiene nel browser/account)
+// così può uscire e riprendere dalla stessa posizione.
+const trimLog = (g) => ({ ...g, log: (g.log || []).slice(-8) });
+function sendSave(room) {
+  const g = room.game;
+  if (!g || g.phase === 'over') return;
+  const mine = G.other(room.bot.color), pl = room.players[mine];
+  if (!pl || !pl.sid) return;
+  const last = room.snaps && room.snaps.length ? room.snaps[room.snaps.length - 1] : null;
+  io.to(pl.sid).emit('save', { v: 1, mine, g: trimLog(g), undoLeft: room.undoLeft || 0, snap: last ? trimLog(last) : null });
+}
+// Controlla che un salvataggio ricevuto dal client abbia una forma sensata prima di usarlo
+function cleanSave(g) {
+  try {
+    if (!g || typeof g !== 'object' || !['draft', 'items', 'play'].includes(g.phase) || !['w', 'b'].includes(g.turn)) return null;
+    if (!g.pieces || typeof g.pieces !== 'object' || !g.run || typeof g.run !== 'object') return null;
+    const ids = Object.keys(g.pieces);
+    if (ids.length < 2 || ids.length > 40) return null;
+    for (const id of ids) {
+      const p = g.pieces[id];
+      if (!/^[wb]\d{1,2}$/.test(id) || !p || p.color !== id[0] || !Sh.ROLES[p.role]) return null;
+      if (p.alive && !(Number.isInteger(p.r) && Number.isInteger(p.c) && p.r >= 0 && p.r < 8 && p.c >= 0 && p.c < 8)) return null;
+      if (p.role === 're' ? (p.hp !== null || p.maxHp !== null) : !(typeof p.hp === 'number' && p.hp >= 0 && p.hp <= 60 && typeof p.maxHp === 'number' && p.maxHp >= 1 && p.maxHp <= 60)) return null;
+      if (p.type && !Sh.TYPES.includes(p.type)) return null;
+    }
+    return JSON.parse(JSON.stringify(g));
+  } catch (e) { return null; }
 }
 
 // ---------- bot ----------
@@ -155,6 +186,30 @@ io.on('connection', (socket) => {
     room.game.log.push(`Partita contro il computer (${{ easy: 'facile', normal: 'normale', hard: 'difficile', master: 'maestro' }[level] || (run ? 'Scalata, scontro ' + run.stage + ' di ' + Scalata.STAGE_COUNT : 'livello ' + level.slice(1) + ' di 10')}). ${room.game.mods.randomTypes ? 'Tipi a caso: si passa agli strumenti.' : 'Draft dei tipi: il Blu comincia.'}${hc ? ` Handicap ${{ light: 'leggero', medium: 'medio', heavy: 'pesante', extreme: 'estremo' }[hc.level]} per ${hc.color === mine ? 'te' : 'il computer'}.` : ''}`);
     cb({ ok: true, code: room.code });
     broadcast(room);
+  });
+
+  // Scalata: riprende uno scontro lasciato a metà dal salvataggio ricevuto in precedenza
+  socket.on('resumeRun', (data, cb) => {
+    cb = typeof cb === 'function' ? cb : () => {};
+    try {
+      if (!data || !validToken(data.token) || !data.save) return cb({ error: 'Richiesta non valida' });
+      const sv = data.save, g = cleanSave(sv.g);
+      if (!g || !(sv.mine === 'w' || sv.mine === 'b')) return cb({ error: 'Salvataggio non valido' });
+      const nr = Scalata.normRun(g.run);
+      if (!nr) return cb({ error: 'Salvataggio non valido' });
+      g.run = { ...nr, color: sv.mine, choices: g.run.choices && typeof g.run.choices === 'object' ? g.run.choices : {} };
+      const snap = sv.snap ? cleanSave(sv.snap) : null;
+      const maxUndo = Scalata.has(nr, 'seconda') ? 1 : 0;
+      const room = { code: newCode(), game: g, players: { w: null, b: null }, touched: Date.now(), run: true, undoLeft: Math.min(maxUndo, Math.max(0, Math.floor(+sv.undoLeft) || 0)), snaps: snap && snap.run ? [snap] : [] };
+      rooms.set(room.code, room);
+      seat(room, socket, sv.mine, data.token, cleanName(data.name));
+      const bc = G.other(sv.mine);
+      room.players[bc] = { token: '__bot__', sid: null, bot: true };
+      room.bot = { color: bc, level: Scalata.STAGES[nr.stage - 1].level };
+      g.log.push('Scontro ripreso dal salvataggio.');
+      cb({ ok: true, code: room.code });
+      broadcast(room);
+    } catch (e) { console.error('resumeRun:', e && e.message); cb({ error: 'Salvataggio non valido' }); }
   });
 
   // partita in due sullo stesso dispositivo: la vista passa da un giocatore all'altro
