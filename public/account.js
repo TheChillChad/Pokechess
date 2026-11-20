@@ -3,7 +3,7 @@
 (function () {
   const URL = 'https://oqkpnkhhyhbxbxgcjzgv.supabase.co';
   const KEY = 'sb_publishable_RA7r2pQIOIfiZHXtXJdpZA_t28izJeE'; // chiave pubblica: è fatta per stare nel sito
-  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme'];
+  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme', 'sm_lang'];
   let sb = null, user = null, timer = null, running = false, again = false;
   const $ = (s) => document.querySelector(s);
   const rd = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -93,13 +93,14 @@
     m.innerHTML = '<div class="acc-box"><button type="button" class="btn acc-x" data-a="close" aria-label="Chiudi">✕</button><h3>⚙️ Impostazioni</h3>' +
       '<button type="button" class="btn acc-row" data-a="snd"><span>Effetti sonori</span><b id="accSnd">' + (muted ? 'Spenti 🔇' : 'Accesi 🔊') + '</b></button>' +
       '<button type="button" class="btn acc-row" data-a="acc"><span>👤 Account</span><b>' + (user ? 'Collegato' : 'Accedi') + '</b></button>' +
-      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<div class="acc-row acc-off"><span>Lingua</span><b>in arrivo</b></div></div>';
+      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="lang"><span>Lingua / Language</span><b>'+(window.EMI18N?EMI18N.LANGS[EMI18N.lang]:'Italiano')+'</b></button></div>';
     m.addEventListener('click', (ev) => {
       if (ev.target === m) return m.remove();
       const a = ev.target.closest('[data-a]'); if (!a) return;
       if (a.dataset.a === 'close') m.remove();
       else if (a.dataset.a === 'acc') modal();
       else if (a.dataset.a === 'theme' && window.EMTheme) { const o = ['dark', 'light', 'auto']; EMTheme.set(o[(o.indexOf(EMTheme.get()) + 1) % 3]); $('#accTh').textContent = themeLabel(); }
+      else if (a.dataset.a === 'lang' && window.EMI18N) { const o = Object.keys(EMI18N.LANGS); EMI18N.set(o[(o.indexOf(EMI18N.lang) + 1) % o.length]); clearTimeout(timer); Promise.race([window.EMAccount.flush(), new Promise((r) => setTimeout(r, 2500))]).then(() => location.reload()); }
       else if (a.dataset.a === 'snd' && window.Sfx) { Sfx.setMuted(!Sfx.isMuted()); $('#accSnd').textContent = Sfx.isMuted() ? 'Spenti 🔇' : 'Accesi 🔊'; }
     });
     document.body.appendChild(m);
@@ -180,6 +181,6 @@
       if (user && (!was || was.id !== user.id)) { const m = $('#accModal'); if (m) m.remove(); setTimeout(() => sync(false, true), 0); }
     });
   }
-  window.EMAccount = { touch };
+  window.EMAccount = { touch, flush: () => (user && sb ? sync(true, false) : Promise.resolve()) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
