@@ -7,6 +7,7 @@
   const get = () => { try { const v = localStorage.getItem(KEY); return LANGS[v] ? v : 'it'; } catch (e) { return 'it'; } };
   const lang = get();
   const dict = { exact: Object.create(null), rules: [] };
+  const miss = new Set(); // testi non tradotti visti (per controllare cosa manca)
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
 
   // Cerca la traduzione di un testo (ritorna null se non c'è)
@@ -21,6 +22,11 @@
         if (m) { out = typeof fn === 'function' ? fn(...m.slice(1)) : n.replace(re, fn); break; }
       }
     }
+    if (out == null) {
+      // testo con punteggiatura attaccata ai lati (es. ": descrizione.") -> traduce il nucleo
+      const m = n.match(/^([^A-Za-zÀ-ù0-9+−×]*)(.*?)([:;,\s—·-]*)$/);
+      if (m && m[2] && (m[1] || m[3]) && m[2] !== n) { const core = tr(m[2]); if (core != null) out = m[1] + core.trim() + m[3]; }
+    }
     if (out == null || out === n) return null;
     const lead = text.match(/^\s*/)[0], trail = text.match(/\s*$/)[0];
     return lead + out + trail;
@@ -34,8 +40,9 @@
     if (n.nodeType === 3) {
       const p = n.parentNode;
       if (!p || SKIP[p.nodeName]) return;
+      if (n.__en === n.nodeValue) return; // già tradotto da noi
       const r = tr(n.nodeValue);
-      if (r != null && r !== n.nodeValue) n.nodeValue = r;
+      if (r != null && r !== n.nodeValue) { n.nodeValue = r; n.__en = r; } else if (r == null) miss.add(n.nodeValue.replace(/\s+/g, ' ').trim());
     } else if (n.nodeType === 1) {
       if (SKIP[n.nodeName]) return;
       for (const a of ATTRS) if (n.hasAttribute(a)) { const r = tr(n.getAttribute(a)); if (r != null) n.setAttribute(a, r); }
@@ -61,7 +68,7 @@
     window.alert = (m) => oa.call(window, t(String(m)));
   }
   window.EMI18N = {
-    lang, LANGS, get, t, tr,
+    lang, LANGS, get, t, tr, miss,
     set(l) { try { localStorage.setItem(KEY, LANGS[l] ? l : 'it'); } catch (e) { /* ignora */ } if (window.EMAccount) window.EMAccount.touch(KEY); },
     // registra traduzioni: exact = {italiano: traduzione}, rules = [[regex, funzione|stringa]]
     add(code, exact, rules) {

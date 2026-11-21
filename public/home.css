@@ -170,3 +170,5 @@
 .acc-sl span{flex:0 0 112px}
 .acc-sl input[type=range]{flex:1;min-width:0;accent-color:#F2B632;height:28px}
 .acc-sl b{flex:0 0 2.2em;text-align:right;font-variant-numeric:tabular-nums}
+.acc-sl select{flex:1;min-width:0;height:36px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:inherit;font:inherit;padding:0 10px}
+.acc-sl select option{color:#1E2230}
