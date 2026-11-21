@@ -288,6 +288,7 @@
     rule('Avversario {x}', (x) => 'Opponent ' + x),
     rule('{x} online', (x) => x + ' online'),
     rule('(max {n})', (n) => '(max ' + n + ')'),
+    rule('💾 Continua la corsa · ondata {n} (superate {n})', (a, b) => '💾 Continue the run · wave ' + a + ' (cleared ' + b + ')'),
     rule('{n} rimasti', (n) => n + ' left'),
     rule('Aggiungi {x} {T}', (x, t) => 'Add ' + x + ' ' + t),
     rule('Tocca al {T}', (t) => t + '\'s turn'),

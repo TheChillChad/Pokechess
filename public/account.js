@@ -3,7 +3,7 @@
 (function () {
   const URL = 'https://oqkpnkhhyhbxbxgcjzgv.supabase.co';
   const KEY = 'sb_publishable_RA7r2pQIOIfiZHXtXJdpZA_t28izJeE'; // chiave pubblica: è fatta per stare nel sito
-  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme', 'sm_lang', 'sm_musvol', 'sm_sfxvol'];
+  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_survsave', 'sm_theme', 'sm_lang', 'sm_musvol', 'sm_sfxvol'];
   let sb = null, user = null, timer = null, running = false, again = false;
   const $ = (s) => document.querySelector(s);
   const rd = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -30,6 +30,10 @@
     if (k === 'sm_run') { // vince la Scalata più avanti
       const x = J(a), y = J(b);
       if (x && y && x.stage !== y.stage) return x.stage > y.stage ? a : b;
+    }
+    if (k === 'sm_survsave') { // vince la corsa più avanti (se una è vuota decide la regola solita)
+      const x = J(a), y = J(b);
+      if (x && y && x.save && y.save && (x.wave !== y.wave || x.cleared !== y.cleared)) return (x.cleared * 1000 + x.wave) > (y.cleared * 1000 + y.wave) ? a : b;
     }
     return preferLocal ? a : b;
   }

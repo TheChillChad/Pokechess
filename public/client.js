@@ -103,11 +103,17 @@
   });
   socket.on('disconnect', () => toast('Connessione persa, riprovo…'));
   socket.on('errore', (m) => toast(m));
-  socket.on('save', (d) => { const r = runGet(); if (r.playing && !r.done) { r.save = d; runSet(r); } });
+  // Sopravvivenza: il server manda il salvataggio a ogni cambio; lo teniamo nel browser (e nell'account)
+  const survSave = () => { try { const v = JSON.parse(store('sm_survsave')); return v && v.save ? v : null; } catch (e) { return null; } };
+  socket.on('save', (d) => {
+    if (d && d.surv && d.g && d.g.surv) { store('sm_survsave', JSON.stringify({ wave: d.g.surv.wave, cleared: d.g.surv.cleared, save: d })); return; }
+    const r = runGet(); if (r.playing && !r.done) { r.save = d; runSet(r); }
+  });
 
   socket.on('state', (st) => {
     const prev = S;
     S = st;
+    if (st.surv && st.phase === 'over' && !st.spectator && survSave()) { store('sm_survsave', ''); renderSurvResume(); }
     if (!prev || prev.phase !== st.phase || prev.you !== st.you) { ui.sel = null; ui.item = null; ui.draftPiece = null; ui.picks = []; ui.rc = {}; }
     if (ui.sel && !st.legal[ui.sel]) ui.sel = null;
     if (ui.item && !myTurn()) ui.item = null;
@@ -153,7 +159,15 @@
   const startBot = (level) => { store('sm_lv', level); socket.emit('createBot', { token, level, name: myName(), mods: { ...getMods(), handicap: optHc.value ? { level: optHc.value, who: optHcWho.value } : null } }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }); };
-  const startSurv = (random) => { socket.emit('createBot', { token, name: myName(), surv: { random: !!random } }, (res) => {
+  function renderSurvResume() {
+    const sv = survSave(), b = $('#btnSurvResume'); if (!b) return;
+    b.hidden = !sv;
+    if (sv) b.innerHTML = `💾 Continua la corsa · ondata ${sv.wave + (sv.save.g.phase === 'prep' || sv.save.g.phase === 'draft' || sv.save.g.phase === 'items' ? 1 : 0)} (superate ${sv.cleared})`;
+  }
+  const resumeSurv = () => { const sv = survSave(); if (!sv) return; socket.emit('resumeSurv', { token, name: myName(), save: sv.save }, (res) => {
+    if (res && res.ok) enterRoom(res.code); else { toast((res && res.error) || 'Errore'); store('sm_survsave', ''); renderSurvResume(); }
+  }); };
+  const startSurv = (random) => { if (survSave() && !confirm('Iniziare una nuova corsa? Quella salvata andrà persa.')) return; store('sm_survsave', ''); socket.emit('createBot', { token, name: myName(), surv: { random: !!random } }, (res) => {
     if (res && res.ok) enterRoom(res.code); else showHome((res && res.error) || 'Errore');
   }); };
   // Puzzle: elenco, avvio, progressi nel browser
@@ -185,7 +199,9 @@
   }); };
   $('#puzList').addEventListener('click', (e) => { const b = e.target.closest('[data-puz]'); if (b) startPuzzle(b.dataset.puz); });
   $('#btnPuz').addEventListener('click', () => showPanel('puz'));
-  $('#btnSurv').addEventListener('click', () => { const o = $('#survOpts'); o.hidden = !o.hidden; $('#btnSurv').classList.toggle('open', !o.hidden); });
+  $('#btnSurvResume').addEventListener('click', resumeSurv);
+  renderSurvResume();
+  $('#btnSurv').addEventListener('click', () => { renderSurvResume(); const o = $('#survOpts'); o.hidden = !o.hidden; $('#btnSurv').classList.toggle('open', !o.hidden); });
   $('#btnSurvGo').addEventListener('click', () => { store('sm_survrand', $('#survRandom').checked ? '1' : ''); startSurv($('#survRandom').checked); });
   try { $('#survRandom').checked = store('sm_survrand') === '1'; } catch (e) { /* ignora */ }
   document.querySelectorAll('#home .h-lv').forEach((b) => b.addEventListener('click', () => startBot(b.dataset.lv)));
@@ -1011,14 +1027,16 @@
   // ---------- uscita, rivincita e schermata di fine partita ----------
   function leaveRoom() {
     const inRun = !!(S && S.run && !S.spectator && S.phase !== 'over');
-    if (S && !S.spectator && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !inRun && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
-    if (S && !S.spectator && !S.sandbox && (S.bot || S.local) && !S.puzzle && !inRun && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
+    const inSurv = !!(S && S.surv && !S.spectator && S.phase !== 'over');
+    if (S && !S.spectator && S.phase !== 'over' && S.phase !== 'lobby' && !S.bot && !S.local && !inRun && !inSurv && !confirm('Uscire dalla partita? Conterà come una resa.')) return;
+    if (S && !S.spectator && !S.sandbox && (S.bot || S.local) && !S.puzzle && !inRun && !inSurv && S.phase === 'play' && !confirm('Uscire dalla partita? Verrà persa.')) return;
     socket.emit('leave');
     store('sm_room', null);
     try { history.replaceState(null, '', location.pathname); } catch (e) { /* ignora */ }
     ui.endDismissed = false; $('#endcard').hidden = true;
     if (inRun) { S = null; roomCode = null; showScal(); toast('Scontro salvato: riprendi dalla Scalata'); return; }
     showHome('');
+    if (inSurv && survSave()) { renderSurvResume(); toast('Corsa salvata: riprendi da Avventure → Sopravvivenza'); }
   }
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('#status [data-act], #endcard [data-act]');

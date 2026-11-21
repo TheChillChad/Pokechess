@@ -73,7 +73,7 @@ function broadcast(room) {
     if (pl && pl.sid) io.to(pl.sid).emit('state', G.publicState(room, color));
   }
   sendSpectators(room);
-  if (room.run && room.bot) sendSave(room);
+  if ((room.run || room.surv) && room.bot) sendSave(room);
   scheduleBot(room);
 }
 
@@ -86,20 +86,21 @@ function sendSave(room) {
   const mine = G.other(room.bot.color), pl = room.players[mine];
   if (!pl || !pl.sid) return;
   const last = room.snaps && room.snaps.length ? room.snaps[room.snaps.length - 1] : null;
-  io.to(pl.sid).emit('save', { v: 1, mine, g: trimLog(g), undoLeft: room.undoLeft || 0, snap: last ? trimLog(last) : null });
+  io.to(pl.sid).emit('save', { v: 1, mine, g: trimLog(g), undoLeft: room.undoLeft || 0, snap: last ? trimLog(last) : null, surv: !!room.surv });
 }
 // Controlla che un salvataggio ricevuto dal client abbia una forma sensata prima di usarlo
-function cleanSave(g) {
+function cleanSave(g, surv) {
   try {
-    if (!g || typeof g !== 'object' || !['draft', 'items', 'play'].includes(g.phase) || !['w', 'b'].includes(g.turn)) return null;
-    if (!g.pieces || typeof g.pieces !== 'object' || !g.run || typeof g.run !== 'object') return null;
+    if (!g || typeof g !== 'object' || !(surv ? ['draft', 'items', 'prep', 'play'] : ['draft', 'items', 'play']).includes(g.phase) || !['w', 'b'].includes(g.turn)) return null;
+    if (!g.pieces || typeof g.pieces !== 'object') return null;
+    if (surv ? !g.surv || typeof g.surv !== 'object' || g.run : !g.run || typeof g.run !== 'object') return null;
     const ids = Object.keys(g.pieces);
-    if (ids.length < 2 || ids.length > 40) return null;
+    if (ids.length < 1 || (surv ? ids.length > 120 : ids.length > 40) || (!surv && ids.length < 2)) return null;
     for (const id of ids) {
       const p = g.pieces[id];
-      if (!/^[wb]\d{1,2}$/.test(id) || !p || p.color !== id[0] || !Sh.ROLES[p.role]) return null;
+      if (!/^[wb]\d{1,3}$/.test(id) || !p || p.color !== id[0] || !Sh.ROLES[p.role]) return null;
       if (p.alive && !(Number.isInteger(p.r) && Number.isInteger(p.c) && p.r >= 0 && p.r < 8 && p.c >= 0 && p.c < 8)) return null;
-      if (p.role === 're' ? (p.hp !== null || p.maxHp !== null) : !(typeof p.hp === 'number' && p.hp >= 0 && p.hp <= 60 && typeof p.maxHp === 'number' && p.maxHp >= 1 && p.maxHp <= 60)) return null;
+      if (p.role === 're' ? (p.hp !== null || p.maxHp !== null) : !(typeof p.hp === 'number' && p.hp >= 0 && p.hp <= 99 && typeof p.maxHp === 'number' && p.maxHp >= 1 && p.maxHp <= 99)) return null;
       if (p.type && !Sh.TYPES.includes(p.type)) return null;
     }
     return JSON.parse(JSON.stringify(g));
@@ -210,6 +211,25 @@ io.on('connection', (socket) => {
       cb({ ok: true, code: room.code });
       broadcast(room);
     } catch (e) { console.error('resumeRun:', e && e.message); cb({ error: 'Salvataggio non valido' }); }
+  });
+
+
+  // Sopravvivenza: riprende una corsa lasciata a metà dal salvataggio ricevuto in precedenza
+  socket.on('resumeSurv', (data, cb) => {
+    cb = typeof cb === 'function' ? cb : () => {};
+    try {
+      if (!data || !validToken(data.token) || !data.save) return cb({ error: 'Richiesta non valida' });
+      const g = cleanSave(data.save.g, true), sv = g && g.surv;
+      if (!g || !sv || !Number.isInteger(sv.wave) || sv.wave < 0 || sv.wave > 999 || !Number.isInteger(sv.cleared) || sv.cleared < 0 || sv.cleared > 999) return cb({ error: 'Salvataggio non valido' });
+      const room = { code: newCode(), game: g, players: { w: null, b: null }, touched: Date.now(), surv: true };
+      rooms.set(room.code, room);
+      seat(room, socket, 'w', data.token, cleanName(data.name));
+      room.players.b = { token: '__bot__', sid: null, bot: true };
+      room.bot = { color: 'b', level: Survival.levelFor(Math.max(1, sv.wave)) };
+      g.log.push('Corsa ripresa dal salvataggio.');
+      cb({ ok: true, code: room.code });
+      broadcast(room);
+    } catch (e) { console.error('resumeSurv:', e && e.message); cb({ error: 'Salvataggio non valido' }); }
   });
 
   // partita in due sullo stesso dispositivo: la vista passa da un giocatore all'altro
