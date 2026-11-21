@@ -4,11 +4,12 @@
 window.Music = (function () {
   const BASE = 'audio/';
   const TRACKS = { menu: 'menu.mp3', battaglia: 'battaglia.mp3', campagna: 'campagna.mp3' };
-  const VOLUME = 0.35, FADE_MS = 600, KEY = 'sm_music'; // '0' = spenta
+  const FADE_MS = 600, KEY = 'sm_music', VKEY = 'sm_musvol'; // KEY '0' = spenta; VKEY = volume 0-100
+  let VOLUME = 0.35;
   let muted = false, scene = null, cur = null, curName = null, unlocked = false, fadeT = null;
   const missing = {}; // tracce che non si sono caricate
   const cache = {};
-  try { muted = localStorage.getItem(KEY) === '0'; } catch (e) { /* ignora */ }
+  try { muted = localStorage.getItem(KEY) === '0'; const v = parseInt(localStorage.getItem(VKEY), 10); if (v >= 0 && v <= 100) VOLUME = v / 100; } catch (e) { /* ignora */ }
 
   function audioFor(name) {
     if (missing[name] || !TRACKS[name]) return null;
@@ -68,6 +69,13 @@ window.Music = (function () {
     setScene(s) { scene = s; sync(); },
     setMuted(m) { muted = !!m; try { localStorage.setItem(KEY, muted ? '0' : '1'); } catch (e) { /* ignora */ } sync(); },
     isMuted: () => muted,
+    getVolume: () => Math.round(VOLUME * 100),
+    setVolume(v) {
+      v = Math.max(0, Math.min(100, Math.round(+v) || 0)); VOLUME = v / 100;
+      try { localStorage.setItem(VKEY, String(v)); } catch (e) { /* ignora */ }
+      if (cur) { clearInterval(cur._f); cur.volume = VOLUME; }
+      if (window.EMAccount) window.EMAccount.touch(VKEY);
+    },
     available: () => Object.keys(TRACKS).some((n) => !missing[n]),
   };
 })();

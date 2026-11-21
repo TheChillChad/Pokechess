@@ -1,15 +1,15 @@
 // Effetti sonori sintetizzati con Web Audio (nessun file audio da scaricare).
 // API: Sfx.play('nome'), Sfx.setMuted(bool), Sfx.isMuted(). Per cambiare i suoni basta modificare SOUNDS.
 window.Sfx = (function () {
-  let ctx = null, master = null, muted = false, noiseBuf = null;
-  try { muted = localStorage.getItem('sm_muted') === '1'; } catch (e) { /* ignora */ }
+  let ctx = null, master = null, muted = false, noiseBuf = null, vol = 1;
+  try { muted = localStorage.getItem('sm_muted') === '1'; const v = parseInt(localStorage.getItem('sm_sfxvol'), 10); if (v >= 0 && v <= 100) vol = v / 100; } catch (e) { /* ignora */ }
 
   function ensure() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return ctx; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return null;
     ctx = new AC();
-    master = ctx.createGain(); master.gain.value = 0.55; master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = 0.55 * vol; master.connect(ctx.destination);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.5, ctx.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -81,5 +81,12 @@ window.Sfx = (function () {
     try { localStorage.setItem('sm_muted', muted ? '1' : '0'); } catch (e) { /* ignora */ }
     if (!muted) play('pick');
   }
-  return { play, setMuted, isMuted: () => muted };
+  // volume 0-100 (a 0 non si sente nulla)
+  function setVolume(v) {
+    v = Math.max(0, Math.min(100, Math.round(+v) || 0)); vol = v / 100;
+    try { localStorage.setItem('sm_sfxvol', String(v)); } catch (e) { /* ignora */ }
+    if (master) master.gain.value = 0.55 * vol;
+    if (window.EMAccount) window.EMAccount.touch('sm_sfxvol');
+  }
+  return { play, setMuted, isMuted: () => muted, setVolume, getVolume: () => Math.round(vol * 100) };
 })();

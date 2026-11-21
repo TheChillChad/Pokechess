@@ -3,7 +3,7 @@
 (function () {
   const URL = 'https://oqkpnkhhyhbxbxgcjzgv.supabase.co';
   const KEY = 'sb_publishable_RA7r2pQIOIfiZHXtXJdpZA_t28izJeE'; // chiave pubblica: è fatta per stare nel sito
-  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme', 'sm_lang'];
+  const SYNC = ['sm_name', 'sm_lv', 'sm_mods', 'sm_puz', 'sm_tut', 'sm_daily', 'sm_survbest', 'sm_survrand', 'sm_run', 'sm_theme', 'sm_lang', 'sm_musvol', 'sm_sfxvol'];
   let sb = null, user = null, timer = null, running = false, again = false;
   const $ = (s) => document.querySelector(s);
   const rd = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
@@ -93,8 +93,15 @@
     const muted = window.Sfx && Sfx.isMuted();
     m.innerHTML = '<div class="acc-box"><button type="button" class="btn acc-x" data-a="close" aria-label="Chiudi">✕</button><h3>⚙️ Impostazioni</h3>' +
       '<button type="button" class="btn acc-row" data-a="snd"><span>Effetti sonori</span><b id="accSnd">' + (muted ? 'Spenti 🔇' : 'Accesi 🔊') + '</b></button>' +
+      '<div class="acc-row acc-sl"><span>Volume effetti</span><input type="range" min="0" max="100" step="1" id="sliSfx" value="'+(window.Sfx?Sfx.getVolume():100)+'" aria-label="Volume effetti"><b id="sliSfxV">'+(window.Sfx?Sfx.getVolume():100)+'</b></div>' +
       '<button type="button" class="btn acc-row" data-a="acc"><span>👤 Account</span><b>' + (user ? 'Collegato' : 'Accedi') + '</b></button>' +
-      '<button type="button" class="btn acc-row" data-a="mus"><span>Musica</span><b id="accMus">'+musLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="lang"><span>Lingua / Language</span><b>'+(window.EMI18N?EMI18N.LANGS[EMI18N.lang]:'Italiano')+'</b></button></div>';
+      '<button type="button" class="btn acc-row" data-a="mus"><span>Musica</span><b id="accMus">'+musLabel()+'</b></button>'+'<div class="acc-row acc-sl"><span>Volume musica</span><input type="range" min="0" max="100" step="1" id="sliMus" value="'+(window.Music?Music.getVolume():35)+'" aria-label="Volume musica"><b id="sliMusV">'+(window.Music?Music.getVolume():35)+'</b></div>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="lang"><span>Lingua / Language</span><b>'+(window.EMI18N?EMI18N.LANGS[EMI18N.lang]:'Italiano')+'</b></button></div>';
+    m.addEventListener('input', (ev) => {
+      const t = ev.target; if (t.type !== 'range') return;
+      $('#' + t.id + 'V').textContent = t.value;
+      if (t.id === 'sliSfx' && window.Sfx) Sfx.setVolume(t.value); else if (t.id === 'sliMus' && window.Music) Music.setVolume(t.value);
+    });
+    m.addEventListener('change', (ev) => { if (ev.target.id === 'sliSfx' && window.Sfx && !Sfx.isMuted()) Sfx.play('pick'); });
     m.addEventListener('click', (ev) => {
       if (ev.target === m) return m.remove();
       const a = ev.target.closest('[data-a]'); if (!a) return;
