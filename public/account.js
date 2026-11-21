@@ -86,6 +86,7 @@
   }
   const TH = { dark: 'Scuro 🌙', light: 'Chiaro ☀️', auto: 'Automatico 📱' };
   const themeLabel = () => TH[window.EMTheme ? EMTheme.get() : 'dark'];
+  const musLabel = () => (window.Music && Music.isMuted() ? 'Spenta 🔇' : 'Accesa 🎵');
   function settings() {
     let m = $('#accModal'); if (m) m.remove();
     m = document.createElement('div'); m.id = 'accModal'; m.className = 'acc-back';
@@ -93,7 +94,7 @@
     m.innerHTML = '<div class="acc-box"><button type="button" class="btn acc-x" data-a="close" aria-label="Chiudi">✕</button><h3>⚙️ Impostazioni</h3>' +
       '<button type="button" class="btn acc-row" data-a="snd"><span>Effetti sonori</span><b id="accSnd">' + (muted ? 'Spenti 🔇' : 'Accesi 🔊') + '</b></button>' +
       '<button type="button" class="btn acc-row" data-a="acc"><span>👤 Account</span><b>' + (user ? 'Collegato' : 'Accedi') + '</b></button>' +
-      '<div class="acc-row acc-off"><span>Musica</span><b>in arrivo</b></div>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="lang"><span>Lingua / Language</span><b>'+(window.EMI18N?EMI18N.LANGS[EMI18N.lang]:'Italiano')+'</b></button></div>';
+      '<button type="button" class="btn acc-row" data-a="mus"><span>Musica</span><b id="accMus">'+musLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="theme"><span>Tema</span><b id="accTh">'+themeLabel()+'</b></button>'+'<button type="button" class="btn acc-row" data-a="lang"><span>Lingua / Language</span><b>'+(window.EMI18N?EMI18N.LANGS[EMI18N.lang]:'Italiano')+'</b></button></div>';
     m.addEventListener('click', (ev) => {
       if (ev.target === m) return m.remove();
       const a = ev.target.closest('[data-a]'); if (!a) return;
@@ -101,6 +102,7 @@
       else if (a.dataset.a === 'acc') modal();
       else if (a.dataset.a === 'theme' && window.EMTheme) { const o = ['dark', 'light', 'auto']; EMTheme.set(o[(o.indexOf(EMTheme.get()) + 1) % 3]); $('#accTh').textContent = themeLabel(); }
       else if (a.dataset.a === 'lang' && window.EMI18N) { const o = Object.keys(EMI18N.LANGS); EMI18N.set(o[(o.indexOf(EMI18N.lang) + 1) % o.length]); clearTimeout(timer); Promise.race([window.EMAccount.flush(), new Promise((r) => setTimeout(r, 2500))]).then(() => location.reload()); }
+      else if (a.dataset.a === 'mus' && window.Music) { Music.setMuted(!Music.isMuted()); $('#accMus').textContent = musLabel(); }
       else if (a.dataset.a === 'snd' && window.Sfx) { Sfx.setMuted(!Sfx.isMuted()); $('#accSnd').textContent = Sfx.isMuted() ? 'Spenti 🔇' : 'Accesi 🔊'; }
     });
     document.body.appendChild(m);

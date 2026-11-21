@@ -76,7 +76,7 @@ EMI18N.add('en', {
   'Spenti 🔇': 'Off 🔇', 'Accesi 🔊': 'On 🔊',
   '👤 Account': '👤 Account',
   'Collegato': 'Signed in', 'Accedi': 'Sign in',
-  'Musica': 'Music', 'in arrivo': 'coming soon',
+  'Musica': 'Music', 'in arrivo': 'coming soon', 'Spenta 🔇': 'Off 🔇', 'Accesa 🎵': 'On 🎵',
   'Tema': 'Theme',
   'Scuro 🌙': 'Dark 🌙', 'Chiaro ☀️': 'Light ☀️', 'Automatico 📱': 'Auto 📱',
   'Lingua': 'Language',
