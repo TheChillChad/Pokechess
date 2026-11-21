@@ -94,6 +94,7 @@ EMI18N.add('en', {
   'Password (min. 6 caratteri)': 'Password (min. 6 characters)',
   'Registrati': 'Sign up',
   'Password dimenticata?': 'Forgot password?',
+  '🔒 Salviamo solo la tua email e i tuoi progressi di gioco, per sincronizzarli tra i dispositivi. Non li vendiamo né li condividiamo con nessuno. I dati sono conservati su Supabase. Puoi cancellare l’account e i dati quando vuoi, chiedendolo a chi gestisce il gioco.': '🔒 We only store your email and your game progress, to sync them across devices. We do not sell or share them with anyone. Data is stored on Supabase. You can have your account and data deleted at any time by asking whoever runs the game.',
   'Scrivi email e password.': 'Enter email and password.',
   'Accesso…': 'Signing in…', 'Registrazione…': 'Signing up…', 'Sincronizzo…': 'Syncing…',
   'La password deve avere almeno 6 caratteri.': 'The password must be at least 6 characters.',

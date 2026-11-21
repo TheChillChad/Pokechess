@@ -135,7 +135,8 @@
       m.innerHTML = '<div class="acc-box">' + close + '<h3>👤 Accedi o registrati</h3><p class="acc-note">Facoltativo. Serve per ritrovare puzzle, tutorial e record su ogni dispositivo.</p>' +
         '<input id="accE" type="email" autocomplete="email" placeholder="Email"><input id="accP" type="password" autocomplete="current-password" placeholder="Password (min. 6 caratteri)">' +
         '<p id="accMsg" class="acc-msg"></p><button type="button" class="btn h-go" data-a="in">Accedi</button><button type="button" class="btn" data-a="up">Registrati</button>' +
-        '<button type="button" class="acc-link" data-a="forgot">Password dimenticata?</button></div>';
+        '<button type="button" class="acc-link" data-a="forgot">Password dimenticata?</button>' +
+        '<p class="acc-priv">🔒 Salviamo solo la tua email e i tuoi progressi di gioco, per sincronizzarli tra i dispositivi. Non li vendiamo né li condividiamo con nessuno. I dati sono conservati su Supabase. Puoi cancellare l’account e i dati quando vuoi, chiedendolo a chi gestisce il gioco.</p></div>';
     }
     m.addEventListener('click', async (ev) => {
       if (ev.target === m) return m.remove();
