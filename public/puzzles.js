@@ -165,11 +165,21 @@
       w: [["re", null, 0, 7, 4], ["torre", "folletto", 8, 4, 0], ["torre", "ghiaccio", 8, 4, 6]],
       b: [["re", null, 0, 0, 4], ["cavallo", "fuoco", 5, 4, 3]],
       items: {"w": [], "b": []} },
+    { id: "t21", ch: 3, title: "Pozione", text: "La Pozione cura di 5 HP un tuo pezzo ferito (mai oltre il massimo) e costa il turno. La tua Torre è quasi KO (3 HP su 8): curala con la Pozione e sconfiggi il pedone evidenziato con il Cavallo.", ok: "La Pozione ti dà più resistenza: usala sui pezzi feriti prima che cadano.", ko: "Usa la Pozione (in basso) sulla Torre ferita e sconfiggi il pedone con il Cavallo.",
+      goal: {"type": "kill", "target": 1, "need": "pozione"}, moves: 2,
+      w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 3, 5, 1], ["cavallo", "fuoco", 7, 5, 5]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 4, 3, 6]],
+      items: {"w": ["pozione"], "b": []} },
     { id: "t8", ch: 3, title: "Bomba", text: "La Bomba fa 3 danni fissi a qualunque pezzo, anche lontano, ma costa il turno. Sconfiggi il pedone evidenziato con la Bomba: nessuno dei tuoi pezzi lo raggiunge.", ok: "La Bomba colpisce a distanza, ma costa tutto il turno.", ko: "Usa lo strumento Bomba (in basso) e poi tocca il pedone nemico.",
       goal: {"type": "kill", "target": 1}, moves: 1,
       w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 7, 0]],
       b: [["re", null, 0, 0, 4], ["pedone", "buio", 3, 2, 6]],
       items: {"w": ["bomba"], "b": []} },
+    { id: "t22", ch: 3, title: "Cristallo", text: "Il Cristallo fa fare ×1,5 di danno al prossimo attacco di un tuo pezzo, ma costa il turno. La Torre rossa ha 8 HP e la tua Regina ne fa 6: con il Cristallo il colpo diventa 9. Usa il Cristallo sulla Regina e poi attacca la Torre rossa.", ok: "Con il Cristallo il colpo da 6 è diventato 9: Torre eliminata in un solo attacco.", ko: "Usa il Cristallo sulla Regina, poi attacca la Torre rossa in diagonale.",
+      goal: {"type": "kill", "target": 1, "need": "cristallo"}, moves: 2,
+      w: [["re", null, 0, 7, 3], ["regina", "ghiaccio", 10, 4, 4]],
+      b: [["re", null, 0, 0, 6], ["torre", "buio", 8, 0, 0], ["pedone", "buio", 4, 1, 0], ["alfiere", "buio", 7, 0, 1]],
+      items: {"w": ["cristallo"], "b": []} },
     { id: "t9", ch: 3, title: "Paralisi", text: "La Paralisi blocca un pezzo avversario: non muove né dà scacco. Non costa il turno! Qui il Cavallo rosso può parare lo scacco: bloccalo e poi dai matto con la Torre.", ok: "Paralisi gratuita: il Cavallo bloccato non può parare e il Re cade.", ko: "Prima usa Paralisi sul Cavallo rosso, poi dai scacco con la Torre.",
       goal: {"type": "mate"}, moves: 1,
       w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 7, 7]],
@@ -254,6 +264,6 @@
     return { def: DAILY[k % DAILY.length], n: k + 1, repeat: k >= DAILY.length };
   }
   const byId = (id) => LIST.find((p) => p.id === id) || TUTORIAL.find((p) => p.id === id) || DAILY.find((p) => p.id === id) || Object.values(DAILY_SPECIAL).find((p) => p.id === id) || null;
-  const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' : p.goal.type === 'castle' ? 'Fai l\'arrocco' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
+  const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' + (p.goal.need ? ' usando ' + ({ pozione: 'la Pozione', cristallo: 'il Cristallo' }[p.goal.need] || 'lo strumento') : '') : p.goal.type === 'castle' ? 'Fai l\'arrocco' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
   return { LIST, TUTORIAL, CHAPTERS, DAILY, DAILY_SPECIAL, DAILY_START, dailyOf, byId, goalText };
 });

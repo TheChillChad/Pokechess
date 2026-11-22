@@ -861,6 +861,7 @@ function puzzleGame(def) {
 }
 function puzzleGoalMet(g) {
   const goal = g.puzzle.goal;
+  if (goal.need && g.items.w.includes(goal.need)) return false; // lezione: va usato lo strumento indicato
   if (goal.type === 'kill') return !!g.pieces[goal.target] && !g.pieces[goal.target].alive;
   if (goal.type === 'clear') return !Object.values(g.pieces).some((p) => p.color === 'b' && p.alive && p.role !== 're');
   if (goal.type === 'castle') return !!g.pieces.w0 && g.pieces.w0.r === 7 && (g.pieces.w0.c === 6 || g.pieces.w0.c === 2); // lezione sull'arrocco: Re blu partito da e1

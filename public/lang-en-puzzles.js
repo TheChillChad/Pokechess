@@ -2,7 +2,7 @@
 EMI18N.add('en', {
   // capitoli e obiettivi
   'Le basi': 'The basics', 'I tipi': 'Types', 'Gli strumenti': 'Items', 'Tattica': 'Tactics',
-  'con strumenti': 'with items', 'Dai scacco matto': 'Checkmate', 'Sconfiggi il pezzo evidenziato': 'Defeat the highlighted piece', 'Sconfiggi tutti i pezzi nemici': 'Defeat all enemy pieces',
+  'con strumenti': 'with items', 'usando la Pozione': 'using the Potion', 'usando il Cristallo': 'using the Crystal', 'Dai scacco matto': 'Checkmate', 'Sconfiggi il pezzo evidenziato': 'Defeat the highlighted piece', 'Sconfiggi tutti i pezzi nemici': 'Defeat all enemy pieces',
   // puzzle
   'Matto della regina': 'Queen mate', 'Il Re rosso è chiuso vicino all\'angolo.': 'The red King is trapped near the corner.', 'Cerca la casella dove la Regina è protetta dall\'Alfiere.': 'Look for the square where the Queen is protected by the Bishop.',
   'Matto in una mossa': 'Mate in one', 'Il Re rosso deve restare senza vie di fuga.': 'The red King must be left with no escape.', 'Per prima cosa guarda che cosa può fare la Regina.': 'First, look at what the Queen can do.',
@@ -59,6 +59,14 @@ EMI18N.add('en', {
   'Richiama la Regina su una casella della diagonale che arriva alla Torre rossa.': 'Call the Queen back to a square on the diagonal that reaches the red Rook.',
   'Porta il pedone in fondo (riga 8) e scegli la Regina.': 'Take the pawn to the end (row 8) and choose the Queen.',
   'Muovi il Cavallo in una casella da cui dà scacco e attacca la Regina insieme.': 'Move the Knight to a square where it gives check and attacks the Queen at once.',
+  'Pozione': 'Potion',
+  'La Pozione cura di 5 HP un tuo pezzo ferito (mai oltre il massimo) e costa il turno. La tua Torre è quasi KO (3 HP su 8): curala con la Pozione e sconfiggi il pedone evidenziato con il Cavallo.': 'The Potion heals one of your wounded pieces by 5 HP (never above the maximum) and costs the turn. Your Rook is almost KO (3 HP out of 8): heal it with the Potion and defeat the highlighted pawn with the Knight.',
+  'La Pozione ti dà più resistenza: usala sui pezzi feriti prima che cadano.': 'The Potion gives you staying power: use it on wounded pieces before they fall.',
+  'Usa la Pozione (in basso) sulla Torre ferita e sconfiggi il pedone con il Cavallo.': 'Use the Potion (at the bottom) on the wounded Rook and defeat the pawn with the Knight.',
+  'Cristallo': 'Crystal',
+  'Il Cristallo fa fare ×1,5 di danno al prossimo attacco di un tuo pezzo, ma costa il turno. La Torre rossa ha 8 HP e la tua Regina ne fa 6: con il Cristallo il colpo diventa 9. Usa il Cristallo sulla Regina e poi attacca la Torre rossa.': 'The Crystal makes the next attack of one of your pieces do ×1.5 damage, but costs the turn. The red Rook has 8 HP and your Queen deals 6: with the Crystal the hit becomes 9. Use the Crystal on the Queen and then attack the red Rook.',
+  'Con il Cristallo il colpo da 6 è diventato 9: Torre eliminata in un solo attacco.': 'With the Crystal the 6-damage hit became 9: Rook eliminated in a single attack.',
+  'Usa il Cristallo sulla Regina, poi attacca la Torre rossa in diagonale.': 'Use the Crystal on the Queen, then attack the red Rook diagonally.',
   // arrocco
   'L\'arrocco': 'Castling', 'Fai l\'arrocco': 'Castle',
   'L\'arrocco è una mossa speciale: il Re si sposta di due caselle verso una Torre e la Torre salta dall\'altra parte. Si può fare solo se Re e Torre non si sono mai mossi, le caselle in mezzo sono libere e il Re non è sotto scacco e non passa per caselle minacciate. Tocca il Re e scegli la casella a due passi: fai l\'arrocco.': 'Castling is a special move: the King moves two squares towards a Rook and the Rook jumps to the other side. It can only be done if the King and Rook have never moved, the squares between them are free, and the King is not in check and does not pass through threatened squares. Tap the King and choose the square two steps away: castle.',
