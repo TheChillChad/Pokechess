@@ -843,7 +843,7 @@ function puzzleGame(def) {
     const p = mkPiece(id, color, e[0], e[3], e[4]);
     p.type = e[1] || null;
     if (e[0] !== 're') p.hp = Math.max(1, Math.min(e[2] || p.maxHp, p.maxHp));
-    p.hasMoved = true; // niente arrocco nei puzzle
+    p.hasMoved = !(def.castle && e[0] === 're' && color === 'w') && !(def.castle && e[0] === 'torre' && color === 'w'); // niente arrocco nei puzzle (tranne nelle lezioni con castle: true)
     if (e[5] === 'dead') { p.alive = false; g.graveyard[color].push(id); }
     if (e[5] === 'shield') p.shield = true;
     if (e[5] === 'boost') p.boost = true;
@@ -863,6 +863,7 @@ function puzzleGoalMet(g) {
   const goal = g.puzzle.goal;
   if (goal.type === 'kill') return !!g.pieces[goal.target] && !g.pieces[goal.target].alive;
   if (goal.type === 'clear') return !Object.values(g.pieces).some((p) => p.color === 'b' && p.alive && p.role !== 're');
+  if (goal.type === 'castle') return !!g.pieces.w0 && g.pieces.w0.r === 7 && (g.pieces.w0.c === 6 || g.pieces.w0.c === 2); // lezione sull'arrocco: Re blu partito da e1
   return false;
 }
 

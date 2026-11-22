@@ -85,6 +85,7 @@ function apply(g, color, act) {
 function goalMet(g, goal) {
   if (goal.type === 'kill') { const t = g.pieces['b' + goal.target]; return !!t && !t.alive; }
   if (goal.type === 'clear') return !Object.values(g.pieces).some((p) => p.color === 'b' && p.alive && p.role !== 're');
+  if (goal.type === 'castle') return !!g.pieces.w0 && g.pieces.w0.r === 7 && (g.pieces.w0.c === 6 || g.pieces.w0.c === 2);
   return false;
 }
 // dopo una mossa del Blu: 'win' | 'lose' | 'cont'

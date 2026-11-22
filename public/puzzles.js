@@ -150,6 +150,11 @@
       w: [["re", null, 0, 7, 4], ["torre", "ghiaccio", 8, 4, 0]],
       b: [["re", null, 0, 0, 6], ["pedone", "buio", 4, 1, 5], ["pedone", "buio", 4, 1, 6], ["pedone", "buio", 4, 1, 7]],
       items: {"w": [], "b": []} },
+    { id: "t20", ch: 1, title: "L'arrocco", castle: true, text: "L'arrocco è una mossa speciale: il Re si sposta di due caselle verso una Torre e la Torre salta dall'altra parte. Si può fare solo se Re e Torre non si sono mai mossi, le caselle in mezzo sono libere e il Re non è sotto scacco e non passa per caselle minacciate. Tocca il Re e scegli la casella a due passi: fai l'arrocco.", ok: "Arrocco! Il Re è al sicuro e la Torre è entrata in gioco.", ko: "Tocca il Re e scegli la casella a due passi da lui, verso una Torre.",
+      goal: {"type": "castle"}, moves: 1,
+      w: [["re", null, 0, 7, 4], ["torre", "fuoco", 8, 7, 7], ["torre", "acqua", 8, 7, 0], ["pedone", "erba", 4, 6, 3], ["pedone", "erba", 4, 6, 4], ["pedone", "erba", 4, 6, 5]],
+      b: [["re", null, 0, 0, 4], ["pedone", "buio", 4, 1, 1], ["cavallo", "buio", 7, 2, 6]],
+      items: {"w": [], "b": []} },
     { id: "t6", ch: 2, title: "Tipo forte", text: "Ogni pezzo ha un tipo: il Fuoco è forte contro l'Erba e fa il doppio dei danni. L'Acqua contro l'Erba fa metà. Scegli la Torre giusta per sconfiggere il Cavallo evidenziato.", ok: "Danno doppio! Fuoco contro Erba fa ×2, mentre Acqua contro Erba fa ×0,5.", ko: "Scegli il tipo che ha vantaggio sul bersaglio (apri «Tipi» in alto per la tabella).",
       goal: {"type": "kill", "target": 1}, moves: 1,
       w: [["re", null, 0, 7, 4], ["torre", "fuoco", 8, 4, 0], ["torre", "acqua", 8, 4, 6]],
@@ -249,6 +254,6 @@
     return { def: DAILY[k % DAILY.length], n: k + 1, repeat: k >= DAILY.length };
   }
   const byId = (id) => LIST.find((p) => p.id === id) || TUTORIAL.find((p) => p.id === id) || DAILY.find((p) => p.id === id) || Object.values(DAILY_SPECIAL).find((p) => p.id === id) || null;
-  const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
+  const goalText = (p) => (p.goal.type === 'mate' ? 'Dai scacco matto' : p.goal.type === 'kill' ? 'Sconfiggi il pezzo evidenziato' : p.goal.type === 'castle' ? 'Fai l\'arrocco' : 'Sconfiggi tutti i pezzi nemici') + ` in ${p.moves} ${p.moves === 1 ? 'mossa' : 'mosse'}`;
   return { LIST, TUTORIAL, CHAPTERS, DAILY, DAILY_SPECIAL, DAILY_START, dailyOf, byId, goalText };
 });
